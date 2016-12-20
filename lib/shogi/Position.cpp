@@ -510,7 +510,6 @@ void Position::init (void)
         auto c     = Piece::color(p);
         _board[s]  = p;
         _bbord[p] ^= Bitboard::Square[s];
-        _piece[c] ^= Bitboard::Square[s];
         _piece[c] ^= (p != Piece::EMP ? Bitboard::Square[s] : Bitboard::Zero);
         _exchg    += _pieceVal[p];
     }
@@ -519,8 +518,8 @@ void Position::init (void)
     _ocupd  = ~_bbord[Piece::EMP];
 
     // square of OU
-    _kingSB = Square::SQ51;
-    _kingSW = Square::SQ59;
+    _kingSB = Square::SQ59;
+    _kingSW = Square::SQ51;
 
     // turn
     _last   = Color::White;
