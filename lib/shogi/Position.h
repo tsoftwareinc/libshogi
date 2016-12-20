@@ -96,6 +96,10 @@ public:
                                                   (& v)[Piece::Depth + 1]
                                                        [Piece::Kind     ]);
 
+
+    // default constructor
+    Position () {}
+
     /// Copy constructor avoiding copying context cache
     Position (const Position &);
 
@@ -542,11 +546,6 @@ protected:
 
     /// Calculate hash
     void                        _hashFull   (void);
-
-
-    // default constructor for TEST
-    //
-    Position () {}
 
 };
 
