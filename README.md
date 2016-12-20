@@ -32,6 +32,7 @@
 
 
 3. RECEIPE
+
    libshogi/Makefile has several options. 
 
 ```Makefile:Makefile
