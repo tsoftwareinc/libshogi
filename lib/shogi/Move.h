@@ -81,9 +81,6 @@ enum Move : uint32_t {
     /// Void move
     None    = 0,
 
-    /// Null move 
-    Null    = 1 << 7,
-
     /// Dropping move
     Drop    = 1 << 14,
 
