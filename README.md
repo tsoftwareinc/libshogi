@@ -57,7 +57,7 @@
 
    We do not suppose libshogi to be used with frequent copying
    operation about the position. If the cost of copying is still
-   an issue in your program, you can make the context cache[^1] TLS.
+   an issue in your program, you can make the context cache* TLS.
    Using TLS, there is some performance penalty because you have to
    check the address each time you access it. To do this, you may
    specify this option as:
@@ -66,7 +66,7 @@
    TLS     = y
 ```
 
-   [^1]: context cache
+   *context cache
    doesn't hold information of positions. It contains the checking
    pieces, number of checks, pinned pieces and etc. This varies
    depending on contexts and require some amount of memory
