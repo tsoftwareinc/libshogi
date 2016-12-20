@@ -1,6 +1,6 @@
 # libshogi/regression
 
-1. REQUIREMENTS
+## REQUIREMENTS
 
    The programs in this directory are for doing regression test.
    'lesserpyon' is required for testing to crosscheck. You also
@@ -45,7 +45,7 @@
 ```
 
 
-2. BENCHMARK
+## BENCHMARK
 
    Tested on Intel Core i3-6100 CPU @ 3.70GHz. Using 34983 kifu files containing
    about 100 positions each :

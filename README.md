@@ -1,9 +1,9 @@
 #libshogi
 
-1. REQUIREMENTS
+## REQUIREMENTS
 
    - x64
-   - POSIX systems that support Berkeley sockets interface
+   - POSIX system that supports Berkeley sockets interface
    - gcc 5.1 or higher that supports c++14
 
    We tested on Fedora25, Ubuntu 16.04 and Linux Mint 18. For users
@@ -15,7 +15,7 @@
    POSIX systems such as xBSDs although we have not tested yet.
 
 
-2. INSTALL
+## INSTALL
 
    Entering
 
@@ -31,11 +31,11 @@
 ```
 
 
-3. RECEIPE
+## RECEIPE
 
    libshogi/Makefile has several options. 
 
-```Makefile:Makefile
+```Makefile
    TARGET  = /usr/local
    HEADDIR = $(TARGET)/include/shogi/
    LIBRDIR = $(TARGET)/lib64
@@ -58,7 +58,7 @@
 
    We do not suppose libshogi to be used with frequent copying
    operation about the position. If the cost of copying is still
-   an issue in your program, you can make the context cache* TLS.
+   an issue in your program, you can make the context cache^1 TLS.
    Using TLS, there is some performance penalty because you have to
    check the address each time you access it. To do this, you may
    specify this option as:
@@ -67,7 +67,7 @@
    TLS     = y
 ```
 
-   *context cache
+   1:context cache
    doesn't hold information of positions. It contains the checking
    pieces, number of checks, pinned pieces and etc. This varies
    depending on contexts and require some amount of memory
