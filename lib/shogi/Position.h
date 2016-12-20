@@ -97,7 +97,7 @@ public:
                                                        [Piece::Kind     ]);
 
 
-    // default constructor
+    // Default constructor
     Position () {}
 
     /// Copy constructor avoiding copying context cache
