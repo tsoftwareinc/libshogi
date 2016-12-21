@@ -1327,10 +1327,8 @@ int main (int argc, char *argv[])
     Position p(summary);
     std::cout << p << std::endl;
 
-    // 自分の手番を確認 (yourTurn)
-    // "+" : 先手
-    // "-" : 後手
-    Color::Color myturn = summary.yourTurn == "+" ? Color::Black : Color::White;
+    // 自分の手番を確認
+    Color::Color myturn = Position::myTurn(summary);
 
     while (1) {
 

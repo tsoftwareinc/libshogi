@@ -96,6 +96,10 @@ public:
                                                   (& v)[Piece::Depth + 1]
                                                        [Piece::Kind     ]);
 
+    /// Get yourTurn in CSA game summary
+    static Color::Color         myTurn     (const CSASummary &);
+
+
 
     // Default constructor
     Position () {}

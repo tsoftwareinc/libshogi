@@ -324,6 +324,20 @@ void Position::handsValue (const Evaluation::Eval (& v)[Piece::Depth + 1]
 
 
 /**
+ * Get yourTurn in CSA game summary
+ * @param g CSASummary
+ * @return your turn in color
+ */
+Color::Color Position::myTurn (const CSASummary &g)
+{
+
+    return (g.yourTurn == "+" ? Color::Black : Color::White);
+
+}
+
+
+
+/**
  * Copy constructor avoiding copying context cache
  * @param v origin
  */
