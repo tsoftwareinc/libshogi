@@ -545,8 +545,8 @@ static size_t searchMax (Position &p, Array<Move::Move, Move::Max> &m)
 {
 
     size_t                  idx   = 0;
-    Eval                    alpha = -Infinity + 1;
-    Eval                    beta  =  Infinity - 1;
+    Eval                    alpha = -Infinity;
+    Eval                    beta  =  Infinity;
 
     for (size_t i = 0; i < m.vsize(); ++i) {
         // 局面を進める
@@ -584,8 +584,8 @@ static size_t searchMin (Position &p, Array<Move::Move, Move::Max> &m)
 {
 
     size_t                  idx   = 0;
-    Eval                    alpha = -Infinity + 1;
-    Eval                    beta  =  Infinity - 1;
+    Eval                    alpha = -Infinity;
+    Eval                    beta  =  Infinity;
 
     for (size_t i = 0; i < m.vsize(); ++i) {
         // 局面を進める
@@ -623,8 +623,8 @@ static size_t splitMax (Position &p, Array<Move::Move, Move::Max> &m)
 {
 
     size_t                  idx   = 0;
-    Eval                    alpha = -Infinity + 1;
-    Eval                    beta  =  Infinity - 1;
+    Eval                    alpha = -Infinity;
+    Eval                    beta  =  Infinity;
 
     // 候補手の数
     int tenum = (int)m.vsize();
@@ -787,8 +787,8 @@ static size_t splitMin (Position &p, Array<Move::Move, Move::Max> &m)
 {
 
     size_t                  idx   = 0;
-    Eval                    alpha = -Infinity + 1;
-    Eval                    beta  =  Infinity - 1;
+    Eval                    alpha = -Infinity;
+    Eval                    beta  =  Infinity;
 
     // 候補手の数
     int tenum = (int)m.vsize();
@@ -977,7 +977,7 @@ static Eval searchMax (Position &p, Eval alpha, Eval beta, int depth)
 
     for (auto move : m) {
 
-        // 王を取る手か
+        // 玉を取る手か
         if (p.dustyB(move)) {
             vmax = Infinity;
             break;
@@ -1047,7 +1047,7 @@ static Eval searchMin (Position &p, Eval alpha, Eval beta, int depth)
 
     for (auto move : m) {
 
-        // 王を取る手か
+        // 玉を取る手か
         if (p.dustyW(move)) {
             vmin = -Infinity;
             break;
@@ -1117,14 +1117,14 @@ static Eval quiesMax (Position &p, Eval alpha, Eval beta, int depth)
         return vmax;
     }
 
-    // 先手番で駒を取る手、王手を回避する手のみを生成 (ほぼ合法手)
+    // 先手番で駒を取る手、玉手を回避する手のみを生成 (ほぼ合法手)
     // 該当する手がなかった場合は静的評価値がこの局面の評価値となる
     Array<Move::Move, Move::Max> m;
     p.genCaptB(m);
 
     for (auto move : m) {
 
-        // 王を取る手か
+        // 玉を取る手か
         if (p.dustyB(move)) {
             vmax = Infinity;
             break;
@@ -1198,14 +1198,14 @@ static Eval quiesMin (Position &p, Eval alpha, Eval beta, int depth)
         return vmin;
     }
 
-    // 後手番で駒を取る手、王手を回避する手のみを生成 (ほぼ合法手)
+    // 後手番で駒を取る手、玉手を回避する手のみを生成 (ほぼ合法手)
     // 該当する手がなかった場合は静的評価値がこの局面の評価値となる
     Array<Move::Move, Move::Max> m;
     p.genCaptW(m);
 
     for (auto move : m) {
 
-        // 王を取る手か
+        // 玉を取る手か
         if (p.dustyW(move)) {
             vmin = -Infinity;
             break;
@@ -1327,15 +1327,15 @@ int main (int argc, char *argv[])
     Position p(summary);
     std::cout << p << std::endl;
 
-    // 自分の手番を確認
+    // プログラムの手番を確認
     Color::Color myturn = Position::myTurn(summary);
 
     while (1) {
 
-        // 自分の手番かどうか
+        // プログラムの手番かどうか
         if (p.turn() == myturn) {
 
-            // 自分の手番
+            // プログラムの手番
 
             // 候補手作成
             Array<Move::Move, Move::Max> move;
@@ -1397,7 +1397,7 @@ int main (int argc, char *argv[])
                 break;
             }
 
-            // 自分の手番の手はスキップ
+            // プログラムの手はスキップ
             const char turnchk[] = {'+', '-'};
             if (turnchk[myturn] == message[0][0]) {
                 continue;
