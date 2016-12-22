@@ -1,3 +1,4 @@
 *.o
 *.so.0
+regression/lesserpyon/
 tags
