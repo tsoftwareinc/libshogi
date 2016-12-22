@@ -552,7 +552,7 @@ static size_t searchMax (Position &p, Array<Move::Move, Move::Max> &m)
         // 局面を進める
         auto back  = p.move(m[i]);
         // 後手局面を探索
-        auto value = searchMin(p, alpha, beta, 0);
+        auto value = searchMin(p, alpha, beta, 1);
         // 局面を戻す
         p.undo(back);
         // fail-high
@@ -591,7 +591,7 @@ static size_t searchMin (Position &p, Array<Move::Move, Move::Max> &m)
         // 局面を進める
         auto back  = p.move(m[i]);
         // 先手局面を探索
-        auto value = searchMax(p, alpha, beta, 0);
+        auto value = searchMax(p, alpha, beta, 1);
         // 局面を戻す
         p.undo(back);
         // fail-low
@@ -758,7 +758,7 @@ static size_t splitMax (Position &p, Array<Move::Move, Move::Max> &m)
         auto back  = p.move(m[idx]);
 
         // 後手番局面を探索するスレッド生成
-        threadArg arg(new Position(p), alpha, beta, 0);
+        threadArg arg(new Position(p), alpha, beta, 1);
         t->th.run(arg);
         t->move = idx;
 
@@ -922,7 +922,7 @@ static size_t splitMin (Position &p, Array<Move::Move, Move::Max> &m)
         auto back  = p.move(m[idx]);
 
         // 先手番局面を探索するスレッド開始
-        threadArg arg(new Position(p), alpha, beta, 0);
+        threadArg arg(new Position(p), alpha, beta, 1);
         t->th.run(arg);
         t->move = idx;
 
