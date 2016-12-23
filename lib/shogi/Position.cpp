@@ -408,6 +408,9 @@ Position::Position (const CSASummary &g)
         for (auto f : Square::fileRev) {
             int  ptr   = (Square::FIL9 - f) * boardStrLen;
             auto pstr  = g.position.value(r);
+            if (pstr[pstr.size() - 1] == '*') {
+                pstr += ' ';
+            }
             auto p     = Piece::csaToPiece(pstr.substr(ptr, boardStrLen));
             auto c     = Piece::color(p);
             auto s     = r | f;

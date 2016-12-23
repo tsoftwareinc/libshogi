@@ -205,7 +205,7 @@ try {
     _CSAFILE_CPP_GAMESUM_DEFVAL(goteName,  "N-", "" );
 
     // position
-    // we assume the position was given when the file contain "P1-" at line head
+    // we assume the position was given when the file contain "P1" at line head
     auto ptr = smrystr.find("P1");
     auto plt = ptr == 0 ? LineEnd : smrystr[ptr - 1];
     if (ptr != std::string::npos && plt <= 0x20) {
@@ -217,7 +217,7 @@ try {
             throw CSAFileException(); \
         } \
         }
-        smrystr.erase(0,  smrystr.find("P1-"));
+        smrystr.erase(0,  smrystr.find("P1"));
         _CSAFILE_CPP_GAMESUM_REQVALWS(position[0], "P1");
         _CSAFILE_CPP_GAMESUM_REQVALWS(position[1], "P2");
         _CSAFILE_CPP_GAMESUM_REQVALWS(position[2], "P3");
@@ -247,7 +247,7 @@ try {
     // check the player to move first
     std::string l;
     std::istringstream is(smrystr);
-    while(1) {
+    while(! is.eof()) {
         std::getline(is, l, LineEnd);
         auto fply = l.substr(0, 1);
         if (fply == "+" || fply == "-") {
