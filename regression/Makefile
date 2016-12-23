@@ -58,7 +58,8 @@ OBJS    = MyPosition.o
 LESPYN  = lesserpyon/Joseki.o lesserpyon/KomaMoves.o \
           lesserpyon/Te.o lesserpyon/kyokumen.o
 EXECS   = testeffect testpin testcheck testvalue testgetout \
-          testmove testfast testcapt testhash testundo movebench
+          testmove testfast testcapt testoute testofst \
+          testhash testundo movebench
 
 all: $(EXECS)
 
@@ -87,6 +88,12 @@ testfast: TestFast.o $(HEADERS) $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LESPYN) $(LFLAGS)
 
 testcapt: TestCapt.o $(HEADERS) $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LESPYN) $(LFLAGS)
+
+testoute: TestOute.o $(HEADERS) $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LESPYN) $(LFLAGS)
+
+testofst: TestOFst.o $(HEADERS) $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $< $(OBJS) $(LESPYN) $(LFLAGS)
 
 testhash: TestHash.o $(HEADERS) $(OBJS)

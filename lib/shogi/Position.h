@@ -120,7 +120,10 @@ public:
     Zobrist::key                hash       (void)           const;
 
     /// Occupied squares
-    Bitboard                    occupied   (void)           const;
+    const Bitboard &            occupied   (void)           const;
+
+    /// Empty squares
+    const Bitboard &            empty      (void)           const;
 
     /// Get exchange value
     Evaluation::Eval            exchange   (void)           const;
@@ -213,6 +216,26 @@ public:
     void                        genCaptW   (foundation::Array<Move::Move, Move::Max> &);
 
 
+    /// Generate moves giving chek
+    void                        genChck    (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Generate moves giving chek for Black
+    void                        genChckB   (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Generate moves giving chek for White
+    void                        genChckW   (foundation::Array<Move::Move, Move::Max> &);
+
+
+    /// Generate moves giving chek fast
+    void                        genCFst    (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Generate moves giving chek fast for black
+    void                        genCFstB   (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Generate moves giving chek fast for white
+    void                        genCFstW   (foundation::Array<Move::Move, Move::Max> &);
+
+
     /// Number of moves so far
                                 operator int() const;
 
@@ -254,6 +277,9 @@ protected:
 
     /// Occupied square
     Bitboard                    _ocupd;
+
+    /// Empty square
+    Bitboard                    _empty;
 
     /// Exchange value
     Evaluation::Eval            _exchg;
@@ -324,7 +350,7 @@ protected:
 
     /// Minor moves
     static const           int      MinorMoves = 64;
-    _POSISION_CONTEXTCACHE foundation::Array<Move::Move, MinorMoves> _move;
+    _POSISION_CONTEXTCACHE foundation::Array<Move::Move, MinorMoves> _m;
 
     /// Effect
     _POSISION_CONTEXTCACHE Bitboard _effect;
@@ -338,36 +364,57 @@ protected:
     /// Clear the Kyokumen
     void                        _clear      (void);
 
+    /// Fundamental functions to generate minor moves
+    void                        _minorMove (Bitboard &to, Square::Square sq,
+                                            foundation::Array<Move::Move, Move::Max> &m);
+    void                        _cacheMove (Bitboard &to, Square::Square sq);
+
     /// Move FU
     void                        _moveBFU    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBFU    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBFU    (foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstBFU    (foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWFU    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWFU    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWFU    (foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstWFU    (foundation::Array<Move::Move, Move::Max> &);
 
     /// Move KY
     void                        _moveBKY    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBKY    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBKY    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWKY    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWKY    (const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWKY    (const Bitboard &, const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
 
     /// Move KE  
     void                        _moveBKE    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBKE    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBKE    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWKE    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWKE    (const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWKE    (const Bitboard &, const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
  
     /// Move GI  
     void                        _moveBGI    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBGI    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBGI    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWGI    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWGI    (const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWGI    (const Bitboard &, const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
 
     /// Move GI with mask
@@ -384,8 +431,12 @@ protected:
     void                        _moveBKI    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBKI    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBKI    (const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWKI    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWKI    (const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWKI    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
 
     /// Move KI, TO, NY, NK and NG with mask
@@ -398,8 +449,12 @@ protected:
     void                        _moveBUM    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBUM    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBUM    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWUM    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWUM    (const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWUM    (const Bitboard &, const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
  
     /// Move UM with mask
@@ -410,8 +465,12 @@ protected:
     void                        _moveBRY    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBRY    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBRY    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWRY    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWRY    (const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWRY    (const Bitboard &, const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
  
     /// Move RY with mask
@@ -422,11 +481,17 @@ protected:
     void                        _moveBKA    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBKA    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBKA    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstBKA    (foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWKA    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWKA    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWKA    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstWKA    (foundation::Array<Move::Move, Move::Max> &);
  
-    /// Move KA and UM with mask
+    /// Move KA with mask
     void                        _moveBKA    (const Bitboard &, Square::Square,
                                              foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBKA    (const Bitboard &, Square::Square,
@@ -440,15 +505,21 @@ protected:
     void                        _pfastKA    (const Bitboard &, Square::Square,
                                              foundation::Array<Move::Move, Move::Max> &);
 
-    /// Move HI and RY
+    /// Move HI
     void                        _moveBHI    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBHI    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckBHI    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstBHI    (foundation::Array<Move::Move, Move::Max> &);
     void                        _moveWHI    (foundation::Array<Move::Move, Move::Max> &);
     void                        _fastWHI    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckWHI    (const Bitboard &, const Bitboard &,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstWHI    (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Move HI and RY with mask
+    /// Move HI with mask
     void                        _moveBHI    (const Bitboard &, Square::Square,
                                              foundation::Array<Move::Move, Move::Max> &);
     void                        _fastBHI    (const Bitboard &, Square::Square,
@@ -464,7 +535,10 @@ protected:
 
     /// Move pinned piece 
     void                        _movePinB   (foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckPinB   (foundation::Array<Move::Move, Move::Max> &);
     void                        _movePinW   (foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckPinW   (foundation::Array<Move::Move, Move::Max> &);
+
 
     /// Move OU (not in check)
     void                        _moveBOU    (foundation::Array<Move::Move, Move::Max> &);
@@ -518,18 +592,39 @@ protected:
     /// Drop others
     void                        _dropBOT    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _dchkBOT    (foundation::Array<Move::Move, Move::Max> &);
     void                        _dropWOT    (const Bitboard &,
                                              foundation::Array<Move::Move, Move::Max> &);
+    void                        _dchkWOT    (foundation::Array<Move::Move, Move::Max> &);
 
-    /// List all the move to certain square (except for OU)
-    void                        _moveBTo    (const Bitboard &, Square::Square,
+    /// All the moves to certain square (except for OU)
+    void                        _moveToB    (const Bitboard &, Square::Square,
                                              foundation::Array<Move::Move, Move::Max> &);
-    void                        _fastBTo    (const Bitboard &, Square::Square,
+    void                        _fastToB    (const Bitboard &, Square::Square,
                                              foundation::Array<Move::Move, Move::Max> &);
-    void                        _moveWTo    (const Bitboard &, Square::Square,
+    void                        _moveToW    (const Bitboard &, Square::Square,
                                              foundation::Array<Move::Move, Move::Max> &);
-    void                        _fastWTo    (const Bitboard &, Square::Square,
+    void                        _fastToW    (const Bitboard &, Square::Square,
                                              foundation::Array<Move::Move, Move::Max> &);
+
+    /// All the moves from certain square (except for OU)
+    void                        _chckFromB  (const Bitboard &, Square::Square,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstFromB  (const Bitboard &, Square::Square,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _chckFromW  (const Bitboard &, Square::Square,
+                                             foundation::Array<Move::Move, Move::Max> &);
+    void                        _cfstFromW  (const Bitboard &, Square::Square,
+                                             foundation::Array<Move::Move, Move::Max> &);
+
+    /// Discovered check
+    void                        _discChckB  (foundation::Array<Move::Move, Move::Max> &);
+    void                        _discChckW  (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Discovered check for gen fast
+    void                        _discCFstB  (foundation::Array<Move::Move, Move::Max> &);
+    void                        _discCFstW  (foundation::Array<Move::Move, Move::Max> &);
+
 
 
     /// Check if any of the colored pieces reach to the square

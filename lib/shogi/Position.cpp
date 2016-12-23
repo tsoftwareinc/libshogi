@@ -62,11 +62,11 @@ static const char *         BLU = "\033[34;1m";
 static const char *         WHT = "\033[37;0m";
 }
 
-// promotion area for black RNK1 - RNK2
+// promotion area for black RNK1 - RNK3
 static constexpr Bitboard   BlackPRMask(
                                   0x01c0e070381c0e07ULL,
                                   0x0000000000000e07ULL );
-static constexpr Bitboard   BlackPNMsk = ~BlackPRMask;
+static constexpr Bitboard   BlackPNMask = ~BlackPRMask;
 
 // promotion area for white RNK7 - RNK9
 static constexpr Bitboard   WhitePRMask(
@@ -74,18 +74,26 @@ static constexpr Bitboard   WhitePRMask(
                                   0x00000000000381c0ULL );
 static constexpr Bitboard   WhitePNMask = ~WhitePRMask;
 
-// the area not forcing promotion for FU andk KY : RNK2 - RNK3 for balack
+// the area not forcing promotion for FU : RNK2 - RNK3 for balack
 // and RNK7 - RNK8 for white
 static constexpr Bitboard   NFBFU(0x0180c06030180c06ULL,
                                   0x0000000000000c06ULL );
 static constexpr Bitboard   NFWFU(0x30180c06030180c0ULL,
                                   0x00000000000180c0ULL );
 
-// the area not forcing promotion for KE : RNK3 for balack and RNK7 for white
-static constexpr Bitboard   NFBKE(0x0040201008040201ULL << 2,
-                                  0x0000000000000201ULL << 2  );
-static constexpr Bitboard   NFWKE(0x0040201008040201ULL << 6,
-                                  0x0000000000000201ULL << 6  );
+// the area not forcing promotion for KY : RNK2 - RNK9 for balack
+// and RNK1 - RNK8 for white
+static constexpr Bitboard   NFBKY(0x7fbfdfeff7fbfdfeULL,
+                                  0x000000000003fdfeULL );
+static constexpr Bitboard   NFWKY(0x3fdfeff7fbfdfeffULL,
+                                  0x000000000001feffULL );
+
+// the area not forcing promotion for KE : RNK3 - RNK9 for balack
+// and RNK1 - RNK7 for white
+static constexpr Bitboard   NFBKE(0x7f3f9fcfe7f3f9fcULL,
+                                  0x000000000003f9fcULL );
+static constexpr Bitboard   NFWKE(0x1fcfe7f3f9fcfe7fULL,
+                                  0x000000000000fe7fULL );
 
 // bitboard to indicate the squares FU and KY can be placed
 static constexpr Bitboard   CanDropBFU (
@@ -177,7 +185,7 @@ static const bool           WKEMPromote [Square::Squares] = {
             false, false, false, false, false, false, false,  true,  true };
 
 // table of functions give the effect for pinned direction
-static const Bitboard &     (* PinDirection[])(Square::Square) = {
+static const Bitboard &     (* DirectionMap[])(Square::Square) = {
                                 nullptr,        // none of direction
                                 Effect::HH,     // rightward
                                 Effect::RS,     // upward right
@@ -277,7 +285,7 @@ thread_local Bitboard       Position::_chkHI;
 thread_local Bitboard       Position::_chkDE;
 
 // Minor moves
-thread_local Array<Move::Move, Position::MinorMoves> Position::_move;
+thread_local Array<Move::Move, Position::MinorMoves> Position::_m;
 
 // Effect cache flag
 thread_local Bitboard       Position::_effect;
@@ -343,7 +351,7 @@ Color::Color Position::myTurn (const CSASummary &g)
  */
 Position::Position (const Position &v)
  : _keyBoard(v._keyBoard), _keyHands(v._keyHands), _key(v._key),
-   _kingSB(v._kingSB), _kingSW(v._kingSW), _ocupd(v._ocupd),
+   _kingSB(v._kingSB), _kingSW(v._kingSW), _ocupd(v._ocupd), _empty(v._empty),
    _exchg(v._exchg), _last(v._last), _next(v._next), _numMoves(v._numMoves)
 {
 
@@ -421,8 +429,12 @@ Position::Position (const CSASummary &g)
         }
     }
 
-    // occupied
+    // occupied bitboard
     _ocupd = ~_bbord[Piece::EMP];
+
+    // empty bitboard 
+    _empty =  _bbord[Piece::EMP];
+
 
     // hands for Black
     _hands[Color::Black][Piece::EMP] = 0;
@@ -534,6 +546,9 @@ void Position::init (void)
     // occupied bitboard
     _ocupd  = ~_bbord[Piece::EMP];
 
+    // empty bitboard
+    _empty  =  _bbord[Piece::EMP];
+
     // square of OU
     _kingSB = Square::SQ59;
     _kingSW = Square::SQ51;
@@ -569,10 +584,23 @@ Zobrist::key Position::hash (void) const
  * Bitboard for the occupied squares
  * @return occupied bitboard
  */
-Bitboard Position::occupied (void) const
+const Bitboard & Position::occupied (void) const
 {
 
     return _ocupd;
+
+}
+
+
+
+/**
+ * Bitboard for the empty squares
+ * @return empty bitboard
+ */
+const Bitboard & Position::empty (void) const
+{
+
+    return _empty;
 
 }
 
@@ -705,6 +733,9 @@ Move::Move Position::drop (const Move::Move &m)
     // update occupied bitboard
     _ocupd            ^= Bitboard::Square[to];
 
+    // update empty bitboard
+    _empty            ^= Bitboard::Square[to];
+
     // update whole hash
     _key               = _keyBoard ^ _keyHands;
 
@@ -755,6 +786,9 @@ void Position::remove (const Move::Move &m)
 
     // update occupied bitboard
     _ocupd            ^= Bitboard::Square[to];
+
+    // update empty bitboard
+    _empty            ^= Bitboard::Square[to];
 
     // update whole hash
     _key               = _keyBoard ^ _keyHands;
@@ -823,6 +857,9 @@ Move::Move Position::move (const Move::Move &m)
 
     // update occupied bitboard
     _ocupd             = _piece[Color::Black] ^ _piece[Color::White];
+
+    // update empty bitboard
+    _empty             = ~_ocupd;
 
     // update whole hash
     _key               = _keyBoard ^ _keyHands;
@@ -905,6 +942,9 @@ void Position::undo (const Move::Move &m)
 
     // update occupied bitboard
     _ocupd             = _piece[Color::Black] ^ _piece[Color::White];
+
+    // update empty bitboard
+    _empty             = ~_ocupd;
 
     // update whole hash
     _key               = _keyBoard ^ _keyHands;
@@ -1121,6 +1161,7 @@ Position & Position::operator= (const Position &rhs)
     _kingSB     = rhs._kingSB;
     _kingSW     = rhs._kingSW;
     _ocupd      = rhs._ocupd;
+    _empty      = rhs._empty;
     _exchg      = rhs._exchg;
     _last       = rhs._last;
     _next       = rhs._next;
@@ -1263,7 +1304,6 @@ void Position::makeCheck (void)
 void Position::genMove (Array<Move::Move, Move::Max> &m)
 {
 
-    // move
     if (_next == Color::Black) {
         genMoveB(m);
     } else {
@@ -1283,7 +1323,7 @@ void Position::genMoveB (Array<Move::Move, Move::Max> &m)
 {
 
     // clear array for minor moves
-    _move.setsz(0);
+    _m.setsz(0);
 
     // make pin
     _makePinB();
@@ -1306,13 +1346,12 @@ void Position::genMoveB (Array<Move::Move, Move::Max> &m)
     _moveBRY(m);
     _moveBKA(m);
     _moveBHI(m);
-    _moveBOU((~_piece[Color::Black]), m);
+    _moveBOU(~_piece[Color::Black], m);
 
-    auto empty = ~_ocupd;
-    _dropBFU(empty, m);
-    _dropBKY(empty, m);
-    _dropBKE(empty, m);
-    _dropBOT(empty, m);
+    _dropBFU(_empty, m);
+    _dropBKY(_empty, m);
+    _dropBKE(_empty, m);
+    _dropBOT(_empty, m);
 
 }
 
@@ -1327,7 +1366,7 @@ void Position::genMoveW (Array<Move::Move, Move::Max> &m)
 {
 
     // clear array for minor moves
-    _move.setsz(0);
+    _m.setsz(0);
 
     // make pin
     _makePinW();
@@ -1352,11 +1391,10 @@ void Position::genMoveW (Array<Move::Move, Move::Max> &m)
     _moveWHI(m);
     _moveWOU(m);
 
-    auto empty = ~_ocupd;
-    _dropWFU(empty, m);
-    _dropWKY(empty, m);
-    _dropWKE(empty, m);
-    _dropWOT(empty, m);
+    _dropWFU(_empty, m);
+    _dropWKY(_empty, m);
+    _dropWKE(_empty, m);
+    _dropWOT(_empty, m);
 
 }
 
@@ -1369,9 +1407,9 @@ void Position::genMoveW (Array<Move::Move, Move::Max> &m)
 void Position::minorMove (Array<Move::Move, Move::Max> &m)
 {
 
-    // clear array for minor moves
-    for (auto _m : _move) {
-        m.add(_m);
+    // copy array for minor moves
+    for (auto move : _m) {
+        m.add(move);
     }
 
 }
@@ -1385,7 +1423,6 @@ void Position::minorMove (Array<Move::Move, Move::Max> &m)
 void Position::genFast (Array<Move::Move, Move::Max> &m)
 {
 
-    // move
     if (_next == Color::Black) {
         genFastB(m);
     } else {
@@ -1409,7 +1446,7 @@ void Position::genFastB (Array<Move::Move, Move::Max> &m)
         return;
     }
 
-    auto mask  = (~_piece[Color::Black]); 
+    auto mask  = ~_piece[Color::Black]; 
 
     _fastBFU(mask, m);
     _fastBKY(mask, m);
@@ -1422,11 +1459,10 @@ void Position::genFastB (Array<Move::Move, Move::Max> &m)
     _fastBHI(mask, m);
     _moveBOU(mask, m);
 
-    auto empty = ~_ocupd;
-    _dropBFU(empty, m);
-    _dropBKY(empty, m);
-    _dropBKE(empty, m);
-    _dropBOT(empty, m);
+    _dropBFU(_empty, m);
+    _dropBKY(_empty, m);
+    _dropBKE(_empty, m);
+    _dropBOT(_empty, m);
 
 }
 
@@ -1445,7 +1481,7 @@ void Position::genFastW (Array<Move::Move, Move::Max> &m)
         return;
     }
 
-    auto mask  = (~_piece[Color::White]); 
+    auto mask  = ~_piece[Color::White]; 
 
     _fastWFU(mask, m);
     _fastWKY(mask, m);
@@ -1458,11 +1494,10 @@ void Position::genFastW (Array<Move::Move, Move::Max> &m)
     _fastWHI(mask, m);
     _moveWOU(mask, m);
 
-    auto empty = ~_ocupd;
-    _dropWFU(empty, m);
-    _dropWKY(empty, m);
-    _dropWKE(empty, m);
-    _dropWOT(empty, m);
+    _dropWFU(_empty, m);
+    _dropWKY(_empty, m);
+    _dropWKE(_empty, m);
+    _dropWOT(_empty, m);
 
 }
 
@@ -1475,7 +1510,6 @@ void Position::genFastW (Array<Move::Move, Move::Max> &m)
 void Position::genCapt (Array<Move::Move, Move::Max> &m)
 {
 
-    // ordinary move
     if (_next == Color::Black) {
         genCaptB(m);
     } else {
@@ -1547,6 +1581,288 @@ void Position::genCaptW (Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Moves giving check for next player
+ * @param m array to store moves
+ *
+ */
+void Position::genChck (Array<Move::Move, Move::Max> &m)
+{
+
+    if (_next == Color::Black) {
+        genChckB(m);
+    } else {
+        genChckW(m);
+    }
+
+}
+
+
+
+/**
+ * Moves to give check for black
+ * @param m array to store moves
+ */
+void Position::genChckB (Array<Move::Move, Move::Max> &m)
+{
+
+    // clear array for minor moves
+    _m.setsz(0);
+
+    // make pin
+    _makePinB();
+
+    // move the pinned pieces
+    _chckPinB(m);
+
+    auto mask = ~_piece[Color::Black];
+    _chckBFU(m);
+    _chckBKY(_bbord[Piece::BKY] & _pinnd, mask, m);
+    _chckBKE(_bbord[Piece::BKE] & _pinnd, mask, m);
+    _chckBGI(_bbord[Piece::BGI] & _pinnd, mask, m);
+    _chckBKI(mask, m);
+    _chckBUM(_bbord[Piece::BUM] & _pinnd, mask, m);
+    _chckBRY(_bbord[Piece::BRY] & _pinnd, mask, m);
+    _chckBKA(_bbord[Piece::BKA] & _pinnd, mask, m);
+    _chckBHI(_bbord[Piece::BHI] & _pinnd, mask, m);
+
+    _dropBFU(Effect::AD(_kingSW, Piece::WFU) & _empty, m);
+    _dropBKY(Effect::KW(_kingSW, _ocupd)     & _empty, m);
+    _dropBKE(Effect::AD(_kingSW, Piece::WKE) & _empty, m);
+    _dchkBOT(m);
+
+    // discovered check
+    _discChckB(m);
+
+}
+
+
+
+/**
+ * Moves to give check for white
+ * @param m array to store moves
+ */
+void Position::genChckW (Array<Move::Move, Move::Max> &m)
+{
+
+    // clear array for minor moves
+    _m.setsz(0);
+
+    // make pin
+    _makePinW();
+
+    // move the pinned pieces
+    _chckPinW(m);
+
+    auto mask = ~_piece[Color::White];
+    _chckWFU(m);
+    _chckWKY(_bbord[Piece::WKY] & _pinnd, mask, m);
+    _chckWKE(_bbord[Piece::WKE] & _pinnd, mask, m);
+    _chckWGI(_bbord[Piece::WGI] & _pinnd, mask, m);
+    _chckWKI(mask, m);
+    _chckWUM(_bbord[Piece::WUM] & _pinnd, mask, m);
+    _chckWRY(_bbord[Piece::WRY] & _pinnd, mask, m);
+    _chckWKA(_bbord[Piece::WKA] & _pinnd, mask, m);
+    _chckWHI(_bbord[Piece::WHI] & _pinnd, mask, m);
+
+    _dropWFU(Effect::AD(_kingSB, Piece::BFU) & _empty, m);
+    _dropWKY(Effect::KB(_kingSB, _ocupd)     & _empty, m);
+    _dropWKE(Effect::AD(_kingSB, Piece::BKE) & _empty, m);
+    _dchkWOT(m);
+
+    // discovered check
+    _discChckW(m);
+
+}
+
+
+
+/**
+ * Moves giving check fast
+ * @param m array to store moves
+ *
+ */
+void Position::genCFst (Array<Move::Move, Move::Max> &m)
+{
+
+    if (_next == Color::Black) {
+        genCFstB(m);
+    } else {
+        genCFstW(m);
+    }
+
+}
+
+
+
+/**
+ * Moves to give check fast for black
+ * @param m array to store moves
+ */
+void Position::genCFstB (Array<Move::Move, Move::Max> &m)
+{
+
+    // check if OU is in check
+    if (_nchek) {
+        return;
+    }
+
+    _cfstBFU(m);
+    _chckBKY(_bbord[Piece::BKY], _empty, m);
+    _chckBKE(_bbord[Piece::BKE], _empty, m);
+    _chckBGI(_bbord[Piece::BGI], _empty, m);
+    _chckBKI(_empty, m);
+    _chckBUM(_bbord[Piece::BUM], _empty, m);
+    _chckBRY(_bbord[Piece::BRY], _empty, m);
+    _cfstBKA(m);
+    _cfstBHI(m);
+
+    _dropBFU(Effect::AD(_kingSW, Piece::WFU) & _empty, m);
+    _dropBKY(Effect::KW(_kingSW, _ocupd)     & _empty, m);
+    _dropBKE(Effect::AD(_kingSW, Piece::WKE) & _empty, m);
+    _dchkBOT(m);
+
+    // discovered check
+    _discCFstB(m);
+
+}
+
+
+
+/**
+ * Moves to give check fast for white
+ * @param m array to store moves
+ */
+void Position::genCFstW (Array<Move::Move, Move::Max> &m)
+{
+
+    // check if OU is in check
+    if (_nchek) {
+        return;
+    }
+
+    _cfstWFU(m);
+    _chckWKY(_bbord[Piece::WKY], _empty, m);
+    _chckWKE(_bbord[Piece::WKE], _empty, m);
+    _chckWGI(_bbord[Piece::WGI], _empty, m);
+    _chckWKI(_empty, m);
+    _chckWUM(_bbord[Piece::WUM], _empty, m);
+    _chckWRY(_bbord[Piece::WRY], _empty, m);
+    _cfstWKA(m);
+    _cfstWHI(m);
+
+    _dropWFU(Effect::AD(_kingSB, Piece::BFU) & _empty, m);
+    _dropWKY(Effect::KB(_kingSB, _ocupd)     & _empty, m);
+    _dropWKE(Effect::AD(_kingSB, Piece::BKE) & _empty, m);
+    _dchkWOT(m);
+
+    // discovered check
+    _discCFstW(m);
+
+}
+
+
+
+/**
+ * Fundamental function to generate nomal moves
+ * @param to   bitmap for squares moved to
+ * @param from square moved from
+ * @param m    array to store moves
+ */
+inline void _normlMove (Bitboard &to, Square::Square sq,
+                                            Array<Move::Move, Move::Max> &m)
+{
+    while (to) {
+        auto s = to.pick();
+        m.add(Move::move(sq, s));
+    }
+}
+
+
+
+/**
+ * Fundamental function to generate promoting moves
+ * @param to   bitmap for squares moved to
+ * @param from square moved from
+ * @param m    array to store moves
+ */
+inline void _promtMove (Bitboard &to, Square::Square sq,
+                                            Array<Move::Move, Move::Max> &m)
+{
+    while (to) {
+        auto s = to.pick();
+        m.add(Move::promote(sq, s));
+    }
+}
+
+
+/**
+ * Fundamental function to generate normal and promoting moves
+ * @param to   bitmap for squares moved to
+ * @param from square moved from
+ * @param m    array to store moves
+ */
+inline void _pandnMove (Bitboard &to, Square::Square sq,
+                                            Array<Move::Move, Move::Max> &m)
+{
+    while (to) {
+        auto s = to.pick();
+        m.add(Move::move   (sq, s));
+        m.add(Move::promote(sq, s));
+    }
+}
+
+
+
+/**
+ * Fundamental function to generate minor moves
+ * @param to   bitmap for squares moved to
+ * @param from square moved from
+ * @param m    array to store moves
+ */
+inline void Position::_minorMove (Bitboard &to, Square::Square sq,
+                                            Array<Move::Move, Move::Max> &m)
+{
+    while (to) {
+        auto s = to.pick();
+         m.add(Move::promote(sq, s));
+        _m.add(Move::move   (sq, s));
+    }
+}
+
+
+
+/**
+ * Cache minor moves
+ * @param to   bitmap for squares moved to
+ * @param from square moved from
+ */
+inline void Position::_cacheMove (Bitboard &to, Square::Square sq)
+{
+    while (to) {
+        auto s = to.pick();
+        _m.add(Move::move(sq, s));
+    }
+}
+
+
+
+/**
+ * undamental function to generate drop moves
+ * @param pc   piece to drop
+ * @param to   bitmsquare moved from
+ * @param m    array to store moves
+ */
+inline void _dropMove (Piece::Piece pc, Bitboard &to, Array<Move::Move, Move::Max> &m)
+{
+    while (to) {
+        auto s = to.pick();
+        m.add(Move::drop(pc, s));
+    }
+}
+
+
+
+/**
  * Move BFU
  * @param m array to store moves
  */
@@ -1554,21 +1870,20 @@ void Position::_moveBFU (Array<Move::Move, Move::Max> &m)
 {
 
     auto ef = ((_bbord[Piece::BFU] & _pinnd) >> 1) & (~_piece[Color::Black]);
-    auto pr = ef & BlackPRMask;
-    auto np = ef & NFBFU;
-
-    ef &= BlackPNMsk;
-    while (ef) {
-        auto sq = ef.pick();
-        m.    add(Move::move   (sq + Square::DWARD, sq));
+    auto en = ef & BlackPNMask;
+    auto eo = ef & NFBFU;
+    auto ep = ef & BlackPRMask;
+    while (en) {
+        auto sq = en.pick();
+         m.add(Move::move   (sq + Square::DWARD, sq));
     }
-    while (np) {
-        auto sq = np.pick();
-        _move.add(Move::move   (sq + Square::DWARD, sq));
+    while (eo) {
+        auto sq = eo.pick();
+        _m.add(Move::move   (sq + Square::DWARD, sq));
     }
-    while (pr) {
-        auto sq = pr.pick();
-        m.    add(Move::promote(sq + Square::DWARD, sq));
+    while (ep) {
+        auto sq = ep.pick();
+         m.add(Move::promote(sq + Square::DWARD, sq));
     }
 
 }
@@ -1583,20 +1898,72 @@ void Position::_moveBFU (Array<Move::Move, Move::Max> &m)
 void Position::_fastBFU (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
-    auto ef = ((_bbord[Piece::BFU] & _pinnd) >> 1) & mask;
-    auto pr = ef & BlackPRMask;
-
-    ef &= BlackPNMsk;
-    while (ef) {
-        auto sq = ef.pick();
+    auto ef = (_bbord[Piece::BFU] >> 1) & mask;
+    auto en = ef & BlackPNMask;
+    auto ep = ef & BlackPRMask;
+    while (en) {
+        auto sq = en.pick();
         m.add(Move::move   (sq + Square::DWARD, sq));
     }
-    while (pr) {
-        auto sq = pr.pick();
+    while (ep) {
+        auto sq = ep.pick();
         m.add(Move::promote(sq + Square::DWARD, sq));
     }
 
 }
+
+
+
+/**
+ * Move BFU to give check
+ * @param m array to store moves
+ */
+void Position::_chckBFU (Array<Move::Move, Move::Max> &m)
+{
+
+    auto ef = ((_bbord[Piece::BFU] & _pinnd) >> 1) & (~_piece[Color::Black]);
+    auto en = ef & BlackPNMask & Effect::AD(_kingSW, Piece::WFU);
+    auto eo = ef & NFBFU       & Effect::AD(_kingSW, Piece::WFU);
+    auto ep = ef & BlackPRMask & Effect::AD(_kingSW, Piece::WKI);
+    while (en) {
+        auto sq = en.pick();
+         m.add(Move::move   (sq + Square::DWARD, sq));
+    }
+    while (eo) {
+        auto sq = eo.pick();
+        _m.add(Move::move   (sq + Square::DWARD, sq));
+    }
+    while (ep) {
+        auto sq = ep.pick();
+         m.add(Move::promote(sq + Square::DWARD, sq));
+    }
+
+}
+
+
+
+/**
+ * Move BFU to give check (fast)
+ * @param m array to store moves
+ */
+void Position::_cfstBFU (Array<Move::Move, Move::Max> &m)
+{
+
+    auto ef = (_bbord[Piece::BFU] >> 1) & _empty;
+    auto en = ef & BlackPNMask & Effect::AD(_kingSW, Piece::WFU);
+    auto ep = ef & BlackPRMask & Effect::AD(_kingSW, Piece::WKI);
+    while (en) {
+        auto sq = en.pick();
+         m.add(Move::move   (sq + Square::DWARD, sq));
+    }
+    while (ep) {
+        auto sq = ep.pick();
+         m.add(Move::promote(sq + Square::DWARD, sq));
+    }
+
+}
+
+
 
 
 
@@ -1608,21 +1975,20 @@ void Position::_moveWFU (Array<Move::Move, Move::Max> &m)
 {
 
     auto ef = ((_bbord[Piece::WFU] & _pinnd) << 1) & (~_piece[Color::White]);
-    auto pr = ef & WhitePRMask;
-    auto np = ef & NFWFU;
-
-    ef &= WhitePNMask;
-    while (ef) {
-        auto sq = ef.pick();
-        m.    add(Move::move   (sq + Square::UWARD, sq));
+    auto en = ef & WhitePNMask;
+    auto eo = ef & NFWFU;
+    auto ep = ef & WhitePRMask;
+    while (en) {
+        auto sq = en.pick();
+         m.add(Move::move   (sq + Square::UWARD, sq));
     }
-    while (np) {
-        auto sq = np.pick();
-        _move.add(Move::move   (sq + Square::UWARD, sq));
+    while (eo) {
+        auto sq = eo.pick();
+        _m.add(Move::move   (sq + Square::UWARD, sq));
     }
-    while (pr) {
-        auto sq = pr.pick();
-        m.    add(Move::promote(sq + Square::UWARD, sq));
+    while (ep) {
+        auto sq = ep.pick();
+         m.add(Move::promote(sq + Square::UWARD, sq));
     }
 
 }
@@ -1637,16 +2003,15 @@ void Position::_moveWFU (Array<Move::Move, Move::Max> &m)
 void Position::_fastWFU (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
-    auto ef = ((_bbord[Piece::WFU] & _pinnd) << 1) & mask;
-    auto pr = ef & WhitePRMask;
-
-    ef &= WhitePNMask;
-    while (ef) {
-        auto sq = ef.pick();
+    auto ef = (_bbord[Piece::WFU] << 1) & mask;
+    auto en = ef & WhitePNMask;
+    auto ep = ef & WhitePRMask;
+    while (en) {
+        auto sq = en.pick();
         m.add(Move::move   (sq + Square::UWARD, sq));
     }
-    while (pr) {
-        auto sq = pr.pick();
+    while (ep) {
+        auto sq = ep.pick();
         m.add(Move::promote(sq + Square::UWARD, sq));
     }
 
@@ -1655,8 +2020,57 @@ void Position::_fastWFU (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Move WFU to give check
+ * @param m array to store moves
+ */
+void Position::_chckWFU (Array<Move::Move, Move::Max> &m)
+{
+
+    auto ef = ((_bbord[Piece::WFU] & _pinnd) << 1) & (~_piece[Color::White]);
+    auto en = ef & WhitePNMask & Effect::AD(_kingSB, Piece::BFU);
+    auto eo = ef & NFWFU       & Effect::AD(_kingSB, Piece::BFU);
+    auto ep = ef & WhitePRMask & Effect::AD(_kingSB, Piece::BKI);
+    while (en) {
+        auto sq = en.pick();
+         m.add(Move::move   (sq + Square::UWARD, sq));
+    }
+    while (eo) {
+        auto sq = eo.pick();
+        _m.add(Move::move   (sq + Square::UWARD, sq));
+    }
+    while (ep) {
+        auto sq = ep.pick();
+         m.add(Move::promote(sq + Square::UWARD, sq));
+    }
+
+}
+
+
+
+/**
+ * Move WFU to give check (fast)
+ * @param m array to store moves
+ */
+void Position::_cfstWFU (Array<Move::Move, Move::Max> &m)
+{
+
+    auto ef = (_bbord[Piece::WFU] << 1) & _empty;
+    auto en = ef & WhitePNMask & Effect::AD(_kingSB, Piece::BFU);
+    auto ep = ef & WhitePRMask & Effect::AD(_kingSB, Piece::BKI);
+    while (en) {
+        auto sq = en.pick();
+         m.add(Move::move   (sq + Square::UWARD, sq));
+    }
+    while (ep) {
+        auto sq = ep.pick();
+         m.add(Move::promote(sq + Square::UWARD, sq));
+    }
+
+}
+
+
+/**
  * Move BKY
- * @param mask mask of effect
  * @param m array to store moves
  */
 void Position::_moveBKY (Array<Move::Move, Move::Max> &m)
@@ -1667,22 +2081,10 @@ void Position::_moveBKY (Array<Move::Move, Move::Max> &m)
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::KB(sq, _ocupd) & (~_piece[Color::Black]);
-        auto pr = ef & BlackPRMask;
-        auto np = ef & NFBFU;
-
-        ef &= BlackPNMsk;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+        auto en = ef & NFBKY;
+        auto ep = ef & BlackPRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1697,27 +2099,40 @@ void Position::_moveBKY (Array<Move::Move, Move::Max> &m)
 void Position::_fastBKY (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
-    auto pp = _bbord[Piece::BKY] & _pinnd;
+    auto pp = _bbord[Piece::BKY];
 
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::KB(sq, _ocupd) & mask;
-        auto pr = ef & BlackPRMask;
-        auto np = ef & NFBFU;
+        auto en = ef & NFBKY;
+        auto ep = ef & BlackPRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
 
-        ef &= BlackPNMsk;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+}
+
+
+
+/**
+ * Move BKY to give check
+ * @param p  bitboard of BKY to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckBKY (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto ef = Effect::KB(sq, _ocupd) & em;
+        auto en = ef & NFBKY       & Effect::KW(_kingSW, _ocupd);
+        auto ep = ef & BlackPRMask & Effect::AD(_kingSW, Piece::WKI);
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1726,7 +2141,6 @@ void Position::_fastBKY (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 /**
  * Move WKY
- * @param mask mask of effect
  * @param m array to store moves
  */
 void Position::_moveWKY (Array<Move::Move, Move::Max> &m)
@@ -1737,22 +2151,10 @@ void Position::_moveWKY (Array<Move::Move, Move::Max> &m)
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::KW(sq, _ocupd) & (~_piece[Color::White]);
-        auto pr = ef & WhitePRMask;
-        auto np = ef & NFWFU;
-
-        ef &= WhitePNMask;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+        auto en = ef & NFWKY;
+        auto ep = ef & WhitePRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1767,27 +2169,40 @@ void Position::_moveWKY (Array<Move::Move, Move::Max> &m)
 void Position::_fastWKY (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
-    auto pp = _bbord[Piece::WKY] & _pinnd;
+    auto pp = _bbord[Piece::WKY];
 
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::KW(sq, _ocupd) & mask;
-        auto pr = ef & WhitePRMask;
-        auto np = ef & NFWFU;
+        auto en = ef & NFWKY;
+        auto ep = ef & WhitePRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
 
-        ef &= WhitePNMask;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+}
+
+
+
+/**
+ * Move WKY to give check
+ * @param p  bitboard of WKY to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckWKY (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto ef = Effect::KW(sq, _ocupd) & em;
+        auto en = ef & NFWKY       & Effect::KB(_kingSB, _ocupd);
+        auto ep = ef & WhitePRMask & Effect::AD(_kingSB, Piece::BKI);
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1806,22 +2221,10 @@ void Position::_moveBKE (Array<Move::Move, Move::Max> &m)
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::AD(sq, Piece::BKE) & (~_piece[Color::Black]);
-        auto pr = ef & BlackPRMask;
-        auto np = ef & NFBKE;
-
-        ef &= BlackPNMsk;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+        auto en = ef & NFBKE;
+        auto ep = ef & BlackPRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1835,27 +2238,40 @@ void Position::_moveBKE (Array<Move::Move, Move::Max> &m)
 void Position::_fastBKE (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
-    auto pp = _bbord[Piece::BKE] & _pinnd;
+    auto pp = _bbord[Piece::BKE];
 
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::AD(sq, Piece::BKE) & mask;
-        auto pr = ef & BlackPRMask;
-        auto np = ef & NFBKE;
+        auto en = ef & NFBKE;
+        auto ep = ef & BlackPRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
 
-        ef &= BlackPNMsk;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+}
+
+
+
+/**
+ * Move BKE to give check
+ * @param p  bitboard of BKE to move
+ * @param em effect mask
+ * @param m array to store moves
+ */
+void Position::_chckBKE (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto ef = Effect::AD(sq, Piece::BKE) & em;
+        auto en = ef & NFBKE       & Effect::AD(_kingSW, Piece::WKE);
+        auto ep = ef & BlackPRMask & Effect::AD(_kingSW, Piece::WKI);
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1864,7 +2280,6 @@ void Position::_fastBKE (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 /**
  * Move WKE
- * @param mask mask of effect
  * @param m array to store moves
  */
 void Position::_moveWKE (Array<Move::Move, Move::Max> &m)
@@ -1875,22 +2290,10 @@ void Position::_moveWKE (Array<Move::Move, Move::Max> &m)
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::AD(sq, Piece::WKE) & (~_piece[Color::White]);
-        auto pr = ef & WhitePRMask;
-        auto np = ef & NFWKE;
-
-        ef &= WhitePNMask;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+        auto en = ef & NFWKE;
+        auto ep = ef & WhitePRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1905,27 +2308,40 @@ void Position::_moveWKE (Array<Move::Move, Move::Max> &m)
 void Position::_fastWKE (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
-    auto pp = _bbord[Piece::WKE] & _pinnd;
+    auto pp = _bbord[Piece::WKE];
 
     while (pp) {
         auto sq = pp.pick();
         auto ef = Effect::AD(sq, Piece::WKE) & mask;
-        auto pr = ef & WhitePRMask;
-        auto np = ef & NFWKE;
+        auto en = ef & NFWKE;
+        auto ep = ef & WhitePRMask;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
 
-        ef &= WhitePNMask;
-        while (ef) {
-            auto s = ef.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (np) {
-            auto s = np.pick();
-            m.add(Move::move   (sq, s));
-        }
-        while (pr) {
-            auto s = pr.pick();
-            m.add(Move::promote(sq, s));
-        }
+}
+
+
+
+/**
+ * Move WKE to give check
+ * @param p  bitboard of WKE to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckWKE (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto ef = Effect::AD(sq, Piece::WKE) & em;
+        auto en = ef & NFWKE       & Effect::AD(_kingSB, Piece::BKE);
+        auto ep = ef & WhitePRMask & Effect::AD(_kingSB, Piece::BKI);
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1940,16 +2356,16 @@ void Position::_moveBGI (Array<Move::Move, Move::Max> &m)
 {
 
     auto p  = _bbord[Piece::BGI] & _pinnd;
-    auto pc = p & BlackPNMsk;
+    auto pc = p & BlackPNMask;
     auto pp = p & BlackPRMask;
 
     while (pc) {
         auto sq = pc.pick();
-        _moveBGI((~_piece[Color::Black]), sq, m);
+        _moveBGI(~_piece[Color::Black], sq, m);
     }
     while (pp) {
         auto sq = pp.pick();
-        _prmtBGI((~_piece[Color::Black]), sq, m);
+        _prmtBGI(~_piece[Color::Black], sq, m);
     }
 
 }
@@ -1965,7 +2381,7 @@ void Position::_fastBGI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
     auto p  = _bbord[Piece::BGI];
-    auto pc = p & BlackPNMsk;
+    auto pc = p & BlackPNMask;
     auto pp = p & BlackPRMask;
 
     while (pc) {
@@ -1975,6 +2391,41 @@ void Position::_fastBGI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     while (pp) {
         auto sq = pp.pick();
         _prmtBGI(mask, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move BGI to give check
+ * @param p  bitboard of BGI to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckBGI (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    auto pc = p  & BlackPNMask;
+    auto pp = p  & BlackPRMask;
+    auto mg = em & Effect::AD(_kingSW, Piece::WGI);
+    auto mk = em & Effect::AD(_kingSW, Piece::WKI);
+    while (pc) {
+        auto sq = pc.pick();
+        auto ef = Effect::AD(sq, Piece::BGI);
+        auto en = ef & mg;                     // np -> (np | pr) without promotion
+        auto ep = ef & BlackPRMask & mk;       // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq = pp.pick();
+        auto ef = Effect::AD(sq, Piece::BGI);
+        auto en = ef & mg;                      // pr -> (np | pr) without promotion
+        auto ep = ef & mk;                      // pr -> (np | pr) with promotion
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -1994,11 +2445,11 @@ void Position::_moveWGI (Array<Move::Move, Move::Max> &m)
 
     while (pc) {
         auto sq = pc.pick();
-        _moveWGI((~_piece[Color::White]), sq, m);
+        _moveWGI(~_piece[Color::White], sq, m);
     }
     while (pp) {
         auto sq = pp.pick();
-        _prmtWGI((~_piece[Color::White]), sq, m);
+        _prmtWGI(~_piece[Color::White], sq, m);
     }
 
 }
@@ -2031,6 +2482,41 @@ void Position::_fastWGI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Move WGI to give check
+ * @param p  bitboard of WGI to move
+ * @param em effect mask
+ * @param m array to store moves
+ */
+void Position::_chckWGI (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    auto pc = p  & WhitePNMask;
+    auto pp = p  & WhitePRMask;
+    auto mg = em & Effect::AD(_kingSB, Piece::BGI);
+    auto mk = em & Effect::AD(_kingSB, Piece::BKI);
+    while (pc) {
+        auto sq = pc.pick();
+        auto ef = Effect::AD(sq, Piece::WGI);
+        auto en = ef & mg;                      // np -> (np | pr) without promotion
+        auto ep = ef & WhitePRMask & mk;        // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq = pp.pick();
+        auto ef = Effect::AD(sq, Piece::WGI);
+        auto en = ef & mg;
+        auto ep = ef & mk;
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
+
+}
+
+
+
+/**
  * Move BGI with mask
  * @param mask mask of effect
  * @param sq   square of BGI
@@ -2040,19 +2526,11 @@ void Position::_moveBGI (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::AD(sq, Piece::BGI) & mask;
-    auto pr = ef & BlackPRMask;
-
-    ef &= BlackPNMsk;
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move(sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.add(Move::move   (sq, s));
-        m.add(Move::promote(sq, s));
-    }
+    auto ef  = Effect::AD(sq, Piece::BGI) & mask;
+    auto pr  = ef & BlackPRMask;
+         ef &= BlackPNMask;
+    _normlMove(ef, sq, m);
+    _pandnMove(pr, sq, m);
 
 }
 
@@ -2068,19 +2546,11 @@ void Position::_moveWGI (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::AD(sq, Piece::WGI) & mask;
-    auto pr = ef & WhitePRMask;
-
-    ef &= WhitePNMask;
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move(sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.add(Move::move   (sq, s));
-        m.add(Move::promote(sq, s));
-    }
+    auto ef  = Effect::AD(sq, Piece::WGI) & mask;
+    auto pr  = ef & WhitePRMask;
+         ef &= WhitePNMask;
+    _normlMove(ef, sq, m);
+    _pandnMove(pr, sq, m);
 
 }
 
@@ -2097,12 +2567,7 @@ void Position::_prmtBGI (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::AD(sq, Piece::BGI) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move   (sq, s));
-        m.add(Move::promote(sq, s));
-    }
+    _pandnMove(ef, sq, m);
 
 }
 
@@ -2119,12 +2584,7 @@ void Position::_prmtWGI (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::AD(sq, Piece::WGI) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move   (sq, s));
-        m.add(Move::promote(sq, s));
-    }
+    _pandnMove(ef, sq, m);
 
 }
 
@@ -2143,7 +2603,7 @@ void Position::_moveBKI (Array<Move::Move, Move::Max> &m)
     pp &= _pinnd;
     while (pp) {
         auto sq = pp.pick();
-        _moveBKI((~_piece[Color::Black]), sq, m);
+        _moveBKI(~_piece[Color::Black], sq, m);
     }
 
 }
@@ -2171,6 +2631,28 @@ void Position::_fastBKI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Move BKI, BTO, BNY, BNK and BNG to give check
+ * @param em effect mask
+ * @param m array to store moves
+ */
+void Position::_chckBKI (const Bitboard &em, Array<Move::Move, Move::Max> &m)
+{
+
+    auto pp = _bbord[Piece::BKI] | _bbord[Piece::BTO] |
+              _bbord[Piece::BNY] | _bbord[Piece::BNK] | _bbord[Piece::BNG];
+
+    pp &= _pinnd;
+    while (pp) {
+        auto sq = pp.pick();
+        auto mk = em & Effect::AD(_kingSW, Piece::WKI);
+        _moveBKI(mk, sq, m);
+    }
+
+}
+
+
+
+/**
  * Move WKI, WTO, WNY, WNK and WNG
  * @param m array to store moves
  */
@@ -2183,7 +2665,7 @@ void Position::_moveWKI (Array<Move::Move, Move::Max> &m)
     pp &= _pinnd;
     while (pp) {
         auto sq = pp.pick();
-        _moveWKI((~_piece[Color::White]), sq, m);
+        _moveWKI(~_piece[Color::White], sq, m);
     }
 
 }
@@ -2211,6 +2693,28 @@ void Position::_fastWKI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Move WKI, WTO, WNY, WNK and WNG to give check
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckWKI (const Bitboard &em, Array<Move::Move, Move::Max> &m)
+{
+
+    auto pp  = _bbord[Piece::WKI] | _bbord[Piece::WTO] |
+               _bbord[Piece::WNY] | _bbord[Piece::WNK] | _bbord[Piece::WNG];
+
+    pp &= _pinnd;
+    while (pp) {
+        auto sq = pp.pick();
+        auto mk = em & Effect::AD(_kingSB, Piece::BKI);
+        _moveWKI(mk, sq, m);
+    }
+
+}
+
+
+
+/**
  * Move BKI with mask
  * @param mask mask of effect
  * @param sq   square of BKI
@@ -2221,11 +2725,7 @@ void Position::_moveBKI (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::AD(sq, Piece::BKI) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move(sq, s));
-    }
+    _normlMove(ef, sq, m);
 
 }
 
@@ -2242,11 +2742,7 @@ void Position::_moveWKI (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::AD(sq, Piece::WKI) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move(sq, s));
-    }
+    _normlMove(ef, sq, m);
 
 }
 
@@ -2262,8 +2758,8 @@ void Position::_moveBUM (Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::BUM] & _pinnd;
 
     while (pp) {
-        auto sq  = pp.pick();
-        _moveUM((~_piece[Color::Black]), sq, m);
+        auto sq = pp.pick();
+        _moveUM(~_piece[Color::Black], sq, m);
     }
 
 }
@@ -2281,8 +2777,30 @@ void Position::_fastBUM (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::BUM];
 
     while (pp) {
-        auto sq  = pp.pick();
+        auto sq = pp.pick();
         _moveUM(mask, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move BUM to give check
+ * @param p  bitboard of BUM to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckBUM (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto mk = em & (Effect::KA(_kingSW, _ocupd) | Effect::OC(_kingSW));
+        _moveUM(mk, sq, m);
     }
 
 }
@@ -2299,8 +2817,8 @@ void Position::_moveWUM (Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::WUM] & _pinnd;
 
     while (pp) {
-        auto sq  = pp.pick();
-        _moveUM((~_piece[Color::White]), sq, m);
+        auto sq = pp.pick();
+        _moveUM(~_piece[Color::White], sq, m);
     }
 
 }
@@ -2318,8 +2836,30 @@ void Position::_fastWUM (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::WUM];
 
     while (pp) {
-        auto sq  = pp.pick();
+        auto sq = pp.pick();
         _moveUM(mask, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move WUM to give check
+ * @param p  bitboard of WUM to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckWUM (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto mk = em & (Effect::KA(_kingSB, _ocupd) | Effect::OC(_kingSB));
+        _moveUM(mk, sq, m);
     }
 
 }
@@ -2336,12 +2876,8 @@ void Position::_moveUM (const Bitboard &mask, Square::Square sq,
                         Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = (Effect::AD(sq, Piece::BUM) | Effect::KA(sq, _ocupd)) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move(sq, s));
-    }
+    auto ef = (Effect::OC(sq) | Effect::KA(sq, _ocupd)) & mask;
+    _normlMove(ef, sq, m);
 
 }
 
@@ -2357,8 +2893,8 @@ void Position::_moveBRY (Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::BRY] & _pinnd;
 
     while (pp) {
-        auto sq  = pp.pick();
-        _moveRY((~_piece[Color::Black]), sq, m);
+        auto sq = pp.pick();
+        _moveRY(~_piece[Color::Black], sq, m);
     }
 
 }
@@ -2376,8 +2912,30 @@ void Position::_fastBRY (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::BRY];
 
     while (pp) {
-        auto sq  = pp.pick();
+        auto sq = pp.pick();
         _moveRY(mask, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move BRY to give check
+ * @param p  bitboard of BRY to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckBRY (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto mk = em & (Effect::HI(_kingSW, _ocupd) | Effect::OC(_kingSW));
+        _moveRY(mk, sq, m);
     }
 
 }
@@ -2394,8 +2952,8 @@ void Position::_moveWRY (Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::WRY] & _pinnd;
 
     while (pp) {
-        auto sq  = pp.pick();
-        _moveRY((~_piece[Color::White]), sq, m);
+        auto sq = pp.pick();
+        _moveRY(~_piece[Color::White], sq, m);
     }
 
 }
@@ -2413,8 +2971,30 @@ void Position::_fastWRY (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     auto pp = _bbord[Piece::WRY];
 
     while (pp) {
-        auto sq  = pp.pick();
+        auto sq = pp.pick();
         _moveRY(mask, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move WRY to give check
+ * @param p  bitboard of WRY to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckWRY (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard pp(p);
+
+    while (pp) {
+        auto sq = pp.pick();
+        auto mk = em & (Effect::HI(_kingSB, _ocupd) | Effect::OC(_kingSB));
+        _moveRY(mk, sq, m);
     }
 
 }
@@ -2431,12 +3011,8 @@ void Position::_moveRY (const Bitboard &mask, Square::Square sq,
                         Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = (Effect::AD(sq, Piece::BRY) | Effect::HI(sq, _ocupd)) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move(sq, s));
-    }
+    auto ef = (Effect::OC(sq) | Effect::HI(sq, _ocupd)) & mask;
+    _normlMove(ef, sq, m);
 
 }
 
@@ -2450,16 +3026,16 @@ void Position::_moveBKA (Array<Move::Move, Move::Max> &m)
 {
 
     auto p  = _bbord[Piece::BKA] & _pinnd;
-    auto pc = p & BlackPNMsk;
+    auto pc = p & BlackPNMask;
     auto pp = p & BlackPRMask;
 
     while (pc) {
         auto sq = pc.pick();
-        _moveBKA((~_piece[Color::Black]), sq, m);
+        _moveBKA(~_piece[Color::Black], sq, m);
     }
     while (pp) {
         auto sq = pp.pick();
-        _promtKA((~_piece[Color::Black]), sq, m);
+        _promtKA(~_piece[Color::Black], sq, m);
     }
 
 }
@@ -2475,7 +3051,7 @@ void Position::_fastBKA (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
     auto p  = _bbord[Piece::BKA];
-    auto pc = p & BlackPNMsk;
+    auto pc = p & BlackPNMask;
     auto pp = p & BlackPRMask;
 
     while (pc) {
@@ -2485,6 +3061,77 @@ void Position::_fastBKA (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     while (pp) {
         auto sq = pp.pick();
         _pfastKA(mask, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move BKA to give check
+ * @param p  bitboard of BKA to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckBKA (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    auto pc = p  & BlackPNMask;
+    auto pp = p  & BlackPRMask;
+    auto mk = em & Effect::KA(_kingSW, _ocupd);
+    auto mu = mk | (Effect::OC(_kingSW) & em );
+
+    while (pc) {
+        auto sq  = pc.pick();
+        auto ef  = Effect::KA(sq, _ocupd);
+        auto en  = ef & BlackPNMask & mk;   // np -> np
+             ef &= BlackPRMask;
+        auto eo  = ef & mk;                 // np -> pr without promotion
+        auto ep  = ef & mu;                 // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq  = pp.pick();
+        auto ef  = Effect::KA(sq, _ocupd);
+        auto eo  = ef & mk;                 // pr -> (np | pr) without promotion
+        auto ep  = ef & mu;                 // pr -> (np | pr) with promotion
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move BKA to give check (fast)
+ * @param m array to store moves
+ */
+void Position::_cfstBKA (Array<Move::Move, Move::Max> &m)
+{
+
+    auto p  = _bbord[Piece::BKA];
+
+    auto pc = p & BlackPNMask;
+    auto pp = p & BlackPRMask;
+    auto mk = Effect::KA(_kingSW, _ocupd) & _empty;
+    auto mu = mk | (Effect::OC(_kingSW)   & _empty);
+
+    while (pc) {
+        auto sq = pc.pick();
+        auto ef = Effect::KA(sq, _ocupd);
+        auto en = ef & BlackPNMask & mk;    // np -> np
+        auto ep = ef & BlackPRMask & mu;    // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq = pp.pick();
+        auto ep = Effect::KA(sq, _ocupd) & mu;
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -2504,11 +3151,11 @@ void Position::_moveWKA (Array<Move::Move, Move::Max> &m)
 
     while (pc) {
         auto sq = pc.pick();
-        _moveWKA((~_piece[Color::White]), sq, m);
+        _moveWKA(~_piece[Color::White], sq, m);
     }
     while (pp) {
         auto sq = pp.pick();
-        _promtKA((~_piece[Color::White]), sq, m);
+        _promtKA(~_piece[Color::White], sq, m);
     }
 
 }
@@ -2541,6 +3188,77 @@ void Position::_fastWKA (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Move WKA to give check
+ * @param p  bitboard of WKA to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckWKA (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    auto pc = p  & WhitePNMask;
+    auto pp = p  & WhitePRMask;
+    auto mk = em & Effect::KA(_kingSB, _ocupd);
+    auto mu = mk | (Effect::OC(_kingSB) & em );
+
+    while (pc) {
+        auto sq  = pc.pick();
+        auto ef  = Effect::KA(sq, _ocupd);
+        auto en  = ef & WhitePNMask & mk;   // np -> np
+             ef &= WhitePRMask;
+        auto eo  = ef & mk;                 // np -> pr without promotion
+        auto ep  = ef & mu;                 // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq  = pp.pick();
+        auto ef  = Effect::KA(sq, _ocupd);
+        auto eo  = ef & mk;                 // pr -> (np | pr) without promotion
+        auto ep  = ef & mu;                 // pr -> (np | pr) with promotion
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move WKA to give check (fast)
+ * @param m array to store moves
+ */
+void Position::_cfstWKA (Array<Move::Move, Move::Max> &m)
+{
+
+    auto p  = _bbord[Piece::WKA];
+
+    auto pc = p & WhitePNMask;
+    auto pp = p & WhitePRMask;
+    auto mk = Effect::KA(_kingSB, _ocupd) & _empty;
+    auto mu = mk | (Effect::OC(_kingSB)   & _empty);
+
+    while (pc) {
+        auto sq = pc.pick();
+        auto ef = Effect::KA(sq, _ocupd);
+        auto en = ef & WhitePNMask & mk;    // np -> np
+        auto ep = ef & WhitePRMask & mu;    // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq = pp.pick();
+        auto ep = Effect::KA(sq, _ocupd) & mu;
+        _promtMove(ep, sq, m);
+    }
+
+}
+
+
+
+/**
  * Move BKA with mask 
  * @param mask mask of effect
  * @param sq   square of BKA
@@ -2550,19 +3268,11 @@ void Position::_moveBKA (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::KA(sq, _ocupd) & mask;
-    auto pr = ef & BlackPRMask;
-
-    ef &= BlackPNMsk;
-    while (ef) {
-        auto s = ef.pick();
-        m.    add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.    add(Move::promote(sq, s));
-        _move.add(Move::move   (sq, s));
-    }
+    auto ef  = Effect::KA(sq, _ocupd) & mask;
+    auto pr  = ef & BlackPRMask;
+         ef &= BlackPNMask;
+    _normlMove(ef, sq, m);
+    _minorMove(pr, sq, m);
 
 }
 
@@ -2578,18 +3288,11 @@ void Position::_fastBKA (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::KA(sq, _ocupd) & mask;
-    auto pr = ef & BlackPRMask;
-
-    ef &= BlackPNMsk;
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.add(Move::promote(sq, s));
-    }
+    auto ef  = Effect::KA(sq, _ocupd) & mask;
+    auto pr  = ef & BlackPRMask;
+         ef &= BlackPNMask;
+    _normlMove(ef, sq, m);
+    _promtMove(pr, sq, m);
 
 }
 
@@ -2605,19 +3308,11 @@ void Position::_moveWKA (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::KA(sq, _ocupd) & mask;
-    auto pr = ef & WhitePRMask;
-
-    ef &= WhitePNMask;
-    while (ef) {
-        auto s = ef.pick();
-        m.    add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.    add(Move::promote(sq, s));
-        _move.add(Move::move   (sq, s));
-    }
+    auto ef  = Effect::KA(sq, _ocupd) & mask;
+    auto pr  = ef & WhitePRMask;
+         ef &= WhitePNMask;
+    _normlMove(ef, sq, m);
+    _minorMove(pr, sq, m);
 
 }
 
@@ -2633,18 +3328,11 @@ void Position::_fastWKA (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::KA(sq, _ocupd) & mask;
-    auto pr = ef & WhitePRMask;
-
-    ef &= WhitePNMask;
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.add(Move::promote(sq, s));
-    }
+    auto ef  = Effect::KA(sq, _ocupd) & mask;
+    auto pr  = ef & WhitePRMask;
+         ef &= WhitePNMask;
+    _normlMove(ef, sq, m);
+    _promtMove(pr, sq, m);
 
 }
 
@@ -2661,12 +3349,7 @@ void Position::_promtKA (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::KA(sq, _ocupd) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.    add(Move::promote(sq, s));
-        _move.add(Move::move   (sq, s));
-    }
+    _minorMove(ef, sq, m);
 
 }
 
@@ -2683,11 +3366,7 @@ void Position::_pfastKA (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::KA(sq, _ocupd) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::promote(sq, s));
-    }
+    _promtMove(ef, sq, m);
 
 }
 
@@ -2701,16 +3380,16 @@ void Position::_moveBHI (Array<Move::Move, Move::Max> &m)
 {
 
     auto p  = _bbord[Piece::BHI] & _pinnd;
-    auto pc = p & BlackPNMsk;
+    auto pc = p & BlackPNMask;
     auto pp = p & BlackPRMask;
 
     while (pc) {
         auto sq = pc.pick();
-        _moveBHI((~_piece[Color::Black]), sq, m);
+        _moveBHI(~_piece[Color::Black], sq, m);
     }
     while (pp) {
         auto sq = pp.pick();
-        _promtHI((~_piece[Color::Black]), sq, m);
+        _promtHI(~_piece[Color::Black], sq, m);
     }
 
 }
@@ -2726,7 +3405,7 @@ void Position::_fastBHI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 {
 
     auto p  = _bbord[Piece::BHI];
-    auto pc = p & BlackPNMsk;
+    auto pc = p & BlackPNMask;
     auto pp = p & BlackPRMask;
 
     while (pc) {
@@ -2736,6 +3415,77 @@ void Position::_fastBHI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     while (pp) {
         auto sq = pp.pick();
         _pfastHI(mask, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move BHI to give check
+ * @param p  bitboard of BHI to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckBHI (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    auto pc = p & BlackPNMask;
+    auto pp = p & BlackPRMask;
+    auto mh = em & Effect::HI(_kingSW, _ocupd);
+    auto mr = mh | (Effect::OC(_kingSW) & em );
+
+    while (pc) {
+        auto sq  = pc.pick();
+        auto ef  = Effect::HI(sq, _ocupd);
+        auto en  = ef & BlackPNMask & mh;   // np -> np
+             ef &= BlackPRMask;
+        auto eo  = ef & mh;                 // np -> pr without promotion
+        auto ep  = ef & mr;                 // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq = pp.pick();
+        auto ef = Effect::HI(sq, _ocupd);
+        auto eo = ef & mh;                  // pr -> (np | pr) without promotion
+        auto ep = ef & mr;                  // pr -> (np | pr) with promotion
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move BHI to give check (fast)
+ * @param m array to store moves
+ */
+void Position::_cfstBHI (Array<Move::Move, Move::Max> &m)
+{
+
+    auto p  = _bbord[Piece::BHI];
+
+    auto pc = p & BlackPNMask;
+    auto pp = p & BlackPRMask;
+    auto mh = Effect::HI(_kingSW, _ocupd) & _empty;
+    auto mr = mh | (Effect::OC(_kingSW)   & _empty);
+
+    while (pc) {
+        auto sq = pc.pick();
+        auto ef = Effect::HI(sq, _ocupd);
+        auto en = ef & BlackPNMask & mh;    // np -> np
+        auto ep = ef & BlackPRMask & mr;    // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq = pp.pick();
+        auto ep = Effect::HI(sq, _ocupd) & mr;
+        _promtMove(ep, sq, m);
     }
 
 }
@@ -2755,11 +3505,11 @@ void Position::_moveWHI (Array<Move::Move, Move::Max> &m)
 
     while (pc) {
         auto sq = pc.pick();
-        _moveWHI((~_piece[Color::White]), sq, m);
+        _moveWHI(~_piece[Color::White], sq, m);
     }
     while (pp) {
         auto sq = pp.pick();
-        _promtHI((~_piece[Color::White]), sq, m);
+        _promtHI(~_piece[Color::White], sq, m);
     }
 
 }
@@ -2792,6 +3542,77 @@ void Position::_fastWHI (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Move WHI to give check
+ * @param p  bitboard of WHI to move
+ * @param em effect mask
+ * @param m  array to store moves
+ */
+void Position::_chckWHI (const Bitboard &p, const Bitboard &em,
+                                            Array<Move::Move, Move::Max> &m)
+{
+
+    auto pc = p & WhitePNMask;
+    auto pp = p & WhitePRMask;
+    auto mh = em & Effect::HI(_kingSB, _ocupd);
+    auto mr = mh | (Effect::OC(_kingSB) & em );
+
+    while (pc) {
+        auto sq  = pc.pick();
+        auto ef  = Effect::HI(sq, _ocupd); 
+        auto en  = ef & WhitePNMask & mh;   // np -> np
+             ef &= WhitePRMask;
+        auto eo  = ef & mh;                 // np -> pr without promotion
+        auto ep  = ef & mr;                 // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq  = pp.pick();
+        auto ef  = Effect::HI(sq, _ocupd); 
+        auto eo  = ef & mh;                 // pr -> (np | pr) without promotion
+        auto ep  = ef & mr;                 // pr -> (np | pr) with promotion
+        _cacheMove(eo, sq);
+        _promtMove(ep, sq, m);
+    }
+
+}
+
+
+
+/**
+ * Move WHI to give check (fast)
+ * @param m array to store moves
+ */
+void Position::_cfstWHI (Array<Move::Move, Move::Max> &m)
+{
+
+    auto p  = _bbord[Piece::WHI];
+
+    auto pc = p & WhitePNMask;
+    auto pp = p & WhitePRMask;
+    auto mh = Effect::HI(_kingSB, _ocupd) & _empty;
+    auto mr = mh | (Effect::OC(_kingSB)   & _empty);
+
+    while (pc) {
+        auto sq = pc.pick();
+        auto ef = Effect::HI(sq, _ocupd); 
+        auto en = ef & WhitePNMask & mh;    // np -> np
+        auto ep = ef & WhitePRMask & mr;    // np -> pr with promotion
+        _normlMove(en, sq, m);
+        _promtMove(ep, sq, m);
+    }
+    while (pp) {
+        auto sq = pp.pick();
+        auto ep = Effect::HI(sq, _ocupd) & mr; 
+        _promtMove(ep, sq, m);
+    }
+
+}
+
+
+
+/**
  * Move BHI with mask 
  * @param mask mask of effect
  * @param sq   square of BHI
@@ -2801,19 +3622,11 @@ void Position::_moveBHI (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::HI(sq, _ocupd) & mask;
-    auto pr = ef & BlackPRMask;
-
-    ef &= BlackPNMsk;
-    while (ef) {
-        auto s = ef.pick();
-        m.    add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.    add(Move::promote(sq, s));
-        _move.add(Move::move   (sq, s));
-    }
+    auto ef  = Effect::HI(sq, _ocupd) & mask;
+    auto pr  = ef & BlackPRMask;
+         ef &= BlackPNMask;
+    _normlMove(ef, sq, m);
+    _minorMove(pr, sq, m);
 
 }
 
@@ -2829,18 +3642,11 @@ void Position::_fastBHI (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::HI(sq, _ocupd) & mask;
-    auto pr = ef & BlackPRMask;
-
-    ef &= BlackPNMsk;
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.add(Move::promote(sq, s));
-    }
+    auto ef  = Effect::HI(sq, _ocupd) & mask;
+    auto pr  = ef & BlackPRMask;
+         ef &= BlackPNMask;
+    _normlMove(ef, sq, m);
+    _promtMove(pr, sq, m);
 
 }
 
@@ -2856,19 +3662,11 @@ void Position::_moveWHI (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::HI(sq, _ocupd) & mask;
-    auto pr = ef & WhitePRMask;
-
-    ef &= WhitePNMask;
-    while (ef) {
-        auto s = ef.pick();
-        m.    add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.    add(Move::promote(sq, s));
-        _move.add(Move::move   (sq, s));
-    }
+    auto ef  = Effect::HI(sq, _ocupd) & mask;
+    auto pr  = ef & WhitePRMask;
+         ef &= WhitePNMask;
+    _normlMove(ef, sq, m);
+    _minorMove(pr, sq, m);
 
 }
 
@@ -2884,18 +3682,11 @@ void Position::_fastWHI (const Bitboard &mask, Square::Square sq,
                          Array<Move::Move, Move::Max> &m          )
 {
 
-    auto ef = Effect::HI(sq, _ocupd) & mask;
-    auto pr = ef & WhitePRMask;
-
-    ef &= WhitePNMask;
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::move   (sq, s));
-    }
-    while (pr) {
-        auto s = pr.pick();
-        m.add(Move::promote(sq, s));
-    }
+    auto ef  = Effect::HI(sq, _ocupd) & mask;
+    auto pr  = ef & WhitePRMask;
+         ef &= WhitePNMask;
+    _normlMove(ef, sq, m);
+    _promtMove(pr, sq, m);
 
 }
 
@@ -2912,12 +3703,7 @@ void Position::_promtHI (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::HI(sq, _ocupd) & mask;
-
-    while (ef) {
-        auto s = ef.pick();
-        m.    add(Move::promote(sq, s));
-        _move.add(Move::move   (sq, s));
-    }
+    _minorMove(ef, sq, m);
 
 }
 
@@ -2934,11 +3720,297 @@ void Position::_pfastHI (const Bitboard &mask, Square::Square sq,
 {
 
     auto ef = Effect::HI(sq, _ocupd) & mask;
+    _promtMove(ef, sq, m);
 
-    while (ef) {
-        auto s = ef.pick();
-        m.add(Move::promote(sq, s));
+}
+
+
+
+/**
+ * Discovered check for black
+ * @param m array to store moves
+ */
+void Position::_discChckB (Array<Move::Move, Move::Max> &m)
+{
+
+    // if the opponent has properly responded, his/her king shoudn't
+    // be in check here.
+
+    // pin mask
+    auto pin = ~_pinnd;
+
+    // attacking pieces
+    auto atk = _piece[Color::Black];
+
+    // BKY
+    auto bky = _bbord[Piece::BKY];
+    while (bky) {
+        auto sq = bky.pick();
+        auto ef = Effect::KB(sq, _ocupd);
+        auto pc = ef & Effect::KW(_kingSW, _ocupd) & atk;
+        if (! pc) {
+            continue;
+        }
+        auto s  = pc.lsb();
+        auto mk = ~(Effect::HV(s) | _piece[Color::Black]);
+        if (_board[s] == Piece::BOU) {
+            _moveBOU(mk, m);
+            continue;
+        } else
+        if (pc & pin) {
+            auto dr  = Direction::distantDirection(s, _kingSB);
+                 mk &= DirectionMap[dr](s);
+        }
+        _chckFromB(mk, s, m);
     }
+
+    // almost same operation for KA and HI here
+    auto mv  = [&] (const Bitboard & (*func)(Square::Square, const Bitboard&),
+                    const Bitboard & (*mask)(Square::Square),
+                          Bitboard bmp                                         ) {
+        while (bmp) {
+            auto sq = bmp.pick();
+            auto ef = func(sq, _ocupd) & mask(sq);
+            auto pc = ef & (func(_kingSW, _ocupd) & mask(_kingSW)) & atk;
+            if (! pc) {
+                continue;
+            }
+            auto s  = pc.lsb();
+            auto dr = Direction::distantDirection(sq, s);
+            auto mk = ~(DirectionMap[dr](s) | _piece[Color::Black]);
+            if (_board[s] == Piece::BOU) {
+                _moveBOU(mk, m);
+                continue;
+            } else
+            if (pc & pin) {
+                dr  = Direction::distantDirection(s, _kingSB);
+                mk &= DirectionMap[dr](s);
+            }
+            _chckFromB(mk, s, m);
+        }
+    };
+
+    // BKA and BUM
+    auto bka = _bbord[Piece::BKA] | _bbord[Piece::BUM];
+    mv(Effect::KA, Effect::RS, bka);
+    mv(Effect::KA, Effect::FR, bka);
+
+    // BHI and BRY
+    auto bhi = _bbord[Piece::BHI] | _bbord[Piece::BRY];
+    mv(Effect::HI, Effect::HH, bhi);
+    mv(Effect::HI, Effect::HV, bhi);
+
+}
+
+
+
+/**
+ * Discovered check for black
+ * @param m array to store moves
+ */
+void Position::_discChckW (Array<Move::Move, Move::Max> &m)
+{
+
+    // if the opponent has properly responded, his/her king shoudn't
+    // be in check here.
+
+    // pin mask
+    auto pin = ~_pinnd;
+
+    // attacking pieces
+    auto atk = _piece[Color::White];
+
+    // WKY
+    auto wky = _bbord[Piece::WKY];
+    while (wky) {
+        auto sq = wky.pick();
+        auto ef = Effect::KW(sq, _ocupd);
+        auto pc = ef & Effect::KB(_kingSB, _ocupd) & atk;
+        if (! pc) {
+            continue;
+        }
+        auto s  = pc.lsb();
+        auto mk = ~(Effect::HV(s) | _piece[Color::White]);
+        if (_board[s] == Piece::WOU) {
+            _moveWOU(mk, m);
+            continue;
+        } else
+        if (pc & pin) {
+            auto dr  = Direction::distantDirection(s, _kingSW);
+                 mk &= DirectionMap[dr](s);
+        }
+        _chckFromW(mk, s, m);
+    }
+
+    // almost same operation for KA and HI here
+    auto mv  = [&] (const Bitboard & (*func)(Square::Square, const Bitboard&),
+                    const Bitboard & (*mask)(Square::Square),
+                          Bitboard bmp                                         ) {
+        while (bmp) {
+            auto sq = bmp.pick();
+            auto ef = func(sq, _ocupd) & mask(sq);
+            auto pc = ef & (func(_kingSB, _ocupd) & mask(_kingSB)) & atk;
+            if (! pc) {
+                continue;
+            }
+            auto s  = pc.lsb();
+            auto dr = Direction::distantDirection(sq, s);
+            auto mk = ~(DirectionMap[dr](s) | _piece[Color::White]);
+            if (_board[s] == Piece::WOU) {
+                _moveWOU(mk, m);
+                continue;
+            } else
+            if (pc & pin) {
+                dr  = Direction::distantDirection(s, _kingSW);
+                mk &= DirectionMap[dr](s);
+            }
+            _chckFromW(mk, s, m);
+        }
+    };
+
+    // WKA and WUM
+    auto wka = _bbord[Piece::WKA] | _bbord[Piece::WUM];
+    mv(Effect::KA, Effect::RS, wka);
+    mv(Effect::KA, Effect::FR, wka);
+
+    // WHI and WRY
+    auto whi = _bbord[Piece::WHI] | _bbord[Piece::WRY];
+    mv(Effect::HI, Effect::HH, whi);
+    mv(Effect::HI, Effect::HV, whi);
+
+}
+
+
+
+/**
+ * Discovered check fast for black
+ * @param m array to store moves
+ */
+void Position::_discCFstB (Array<Move::Move, Move::Max> &m)
+{
+
+    // if the opponent has properly responded, his/her king shoudn't
+    // be in check here.
+
+    // attacking pieces
+    auto atk = _piece[Color::Black];
+
+    // BKY
+    auto bky = _bbord[Piece::BKY];
+    while (bky) {
+        auto sq = bky.pick();
+        auto ef = Effect::KB(sq, _ocupd);
+        auto pc = ef & Effect::KW(_kingSW, _ocupd) & atk;
+        if (! pc) {
+            continue;
+        }
+        auto s  = pc.lsb();
+        auto mk = (~Effect::HV(s)) & _empty;
+        if (_board[s] == Piece::BOU) {
+            _moveBOU(mk, m);
+            continue;
+        }
+        _cfstFromB(mk, s, m);
+    }
+
+    // almost same operation for KA and HI here
+    auto mv  = [&] (const Bitboard & (*func)(Square::Square, const Bitboard&),
+                    const Bitboard & (*mask)(Square::Square),
+                          Bitboard bmp                                         ) {
+        while (bmp) {
+            auto sq = bmp.pick();
+            auto ef = func(sq, _ocupd) & mask(sq);
+            auto pc = ef & (func(_kingSW, _ocupd) & mask(_kingSW)) & atk;
+            if (! pc) {
+                continue;
+            }
+            auto s  = pc.lsb();
+            auto dr = Direction::distantDirection(sq, s);
+            auto mk = (~DirectionMap[dr](s)) & _empty;
+            if (_board[s] == Piece::BOU) {
+                _moveBOU(mk, m);
+                continue;
+            }
+            _cfstFromB(mk, s, m);
+        }
+    };
+
+    // BKA and BUM
+    auto bka = _bbord[Piece::BKA] | _bbord[Piece::BUM];
+    mv(Effect::KA, Effect::RS, bka);
+    mv(Effect::KA, Effect::FR, bka);
+
+    // BHI and BRY
+    auto bhi = _bbord[Piece::BHI] | _bbord[Piece::BRY];
+    mv(Effect::HI, Effect::HH, bhi);
+    mv(Effect::HI, Effect::HV, bhi);
+
+}
+
+
+
+/**
+ * Discovered check fast for black
+ * @param m array to store moves
+ */
+void Position::_discCFstW (Array<Move::Move, Move::Max> &m)
+{
+
+    // if the opponent has properly responded, his/her king shoudn't
+    // be in check here.
+
+    // attacking pieces
+    auto atk = _piece[Color::White];
+
+    // WKY
+    auto wky = _bbord[Piece::WKY];
+    while (wky) {
+        auto sq = wky.pick();
+        auto ef = Effect::KW(sq, _ocupd);
+        auto pc = ef & Effect::KB(_kingSB, _ocupd) & atk;
+        if (! pc) {
+            continue;
+        }
+        auto s  = pc.lsb();
+        auto mk = (~Effect::HV(s)) & _empty;
+        if (_board[s] == Piece::WOU) {
+            _moveWOU(mk, m);
+            continue;
+        }
+        _cfstFromW(mk, s, m);
+    }
+
+    // almost same operation for KA and HI here
+    auto mv  = [&] (const Bitboard & (*func)(Square::Square, const Bitboard&),
+                    const Bitboard & (*mask)(Square::Square),
+                          Bitboard bmp                                         ) {
+        while (bmp) {
+            auto sq = bmp.pick();
+            auto ef = func(sq, _ocupd) & mask(sq);
+            auto pc = ef & (func(_kingSB, _ocupd) & mask(_kingSB)) & atk;
+            if (! pc) {
+                continue;
+            }
+            auto s  = pc.lsb();
+            auto dr = Direction::distantDirection(sq, s);
+            auto mk = (~DirectionMap[dr](s)) & _empty;
+            if (_board[s] == Piece::WOU) {
+                _moveWOU(mk, m);
+                continue;
+            }
+            _cfstFromW(mk, s, m);
+        }
+    };
+
+    // WKA and WUM
+    auto wka = _bbord[Piece::WKA] | _bbord[Piece::WUM];
+    mv(Effect::KA, Effect::RS, wka);
+    mv(Effect::KA, Effect::FR, wka);
+
+    // WHI and WRY
+    auto whi = _bbord[Piece::WHI] | _bbord[Piece::WRY];
+    mv(Effect::HI, Effect::HH, whi);
+    mv(Effect::HI, Effect::HV, whi);
 
 }
 
@@ -2954,7 +4026,7 @@ void Position::_movePinB (Array<Move::Move, Move::Max> &m)
     using namespace Piece;
 
     // check if any pinned piece 
-    auto pinned = _pinnd ^ Bitboard::Fill;
+    auto pinned = ~_pinnd;
     if (! (pinned)) {
         return;
     }
@@ -2967,7 +4039,7 @@ void Position::_movePinB (Array<Move::Move, Move::Max> &m)
     while (pinndn) {
         auto sq = pinndn.pick();
         auto dr = Direction::distantDirection(sq, _kingSB);
-        auto mk = PinDirection[dr](sq) & (~_piece[Color::Black]);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::Black]);
         auto pc = _board[sq];
         switch (pc) {
         case BFU: case BKY: case BKE:
@@ -2999,7 +4071,7 @@ void Position::_movePinB (Array<Move::Move, Move::Max> &m)
     while (pinnds) {
         auto sq = pinnds.pick();
         auto dr = Direction::distantDirection(sq, _kingSB);
-        auto mk = PinDirection[dr](sq) & (~_piece[Color::Black]);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::Black]);
         auto pc = _board[sq];
         switch (pc) {
         case BFU: case BKY: case BKE: case BKI: case BTO:
@@ -3034,7 +4106,7 @@ void Position::_movePinW (Array<Move::Move, Move::Max> &m)
     using namespace Piece;
 
     // check if any pinned piece 
-    auto pinned = _pinnd ^ Bitboard::Fill;
+    auto pinned = ~_pinnd;
     if (! (pinned)) {
         return;
     }
@@ -3047,7 +4119,7 @@ void Position::_movePinW (Array<Move::Move, Move::Max> &m)
     while (pinndn) {
         auto sq = pinndn.pick();
         auto dr = Direction::distantDirection(sq, _kingSW);
-        auto mk = PinDirection[dr](sq) & (~_piece[Color::White]);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::White]);
         auto pc = _board[sq];
         switch (pc) {
         case WFU: case WKY: case WKE:
@@ -3079,7 +4151,7 @@ void Position::_movePinW (Array<Move::Move, Move::Max> &m)
     while (pinnds) {
         auto sq = pinnds.pick();
         auto dr = Direction::distantDirection(sq, _kingSW);
-        auto mk = PinDirection[dr](sq) & (~_piece[Color::White]);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::White]);
         auto pc = _board[sq];
         switch (pc) {
         case WFU: case WKY: case WKE: case WKI: case WTO:
@@ -3093,6 +4165,104 @@ void Position::_movePinW (Array<Move::Move, Move::Max> &m)
             break;
         case WHI:
             _promtHI(mk, sq, m);
+            break;
+        default:
+            _GAME_POSITION_CHECK(0);
+            break;
+        }
+    }
+
+}
+
+
+
+/**
+ * Move black pinned piece to give check
+ * @param m array to store moves
+ */
+void Position::_chckPinB (Array<Move::Move, Move::Max> &m)
+{
+
+    using namespace Piece;
+
+    // check if any pinned piece 
+    auto pinned = ~_pinnd;
+
+    while (pinned) {
+        auto sq = pinned.pick();
+        auto dr = Direction::distantDirection(sq, _kingSB);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::Black]);
+        auto pc = _board[sq];
+        switch (pc) {
+        case BFU: case BKY: case BKE:
+            break;
+        case BGI:
+            _chckBGI(Bitboard::Square[sq], mk, m);
+            break;
+        case BKI: case BTO: case BNY: case BNK: case BNG:
+            mk &= Effect::AD(_kingSW, Piece::WKI);
+            _moveBKI(mk, sq, m);
+            break;
+        case BUM:
+            _chckBUM(Bitboard::Square[sq], mk, m);
+            break;
+        case BRY:
+            _chckBRY(Bitboard::Square[sq], mk, m);
+            break;
+        case BKA:
+            _chckBKA(Bitboard::Square[sq], mk, m);
+            break;
+        case BHI:
+            _chckBHI(Bitboard::Square[sq], mk, m);
+            break;
+        default:
+            _GAME_POSITION_CHECK(0);
+            break;
+        }
+    }
+
+}
+
+
+
+/**
+ * Move white pinned piece to give check
+ * @param m array to store moves
+ */
+void Position::_chckPinW (Array<Move::Move, Move::Max> &m)
+{
+
+    using namespace Piece;
+
+    // check if any pinned piece 
+    auto pinned = ~_pinnd;
+
+    while (pinned) {
+        auto sq = pinned.pick();
+        auto dr = Direction::distantDirection(sq, _kingSW);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::White]);
+        auto pc = _board[sq];
+        switch (pc) {
+        case WFU: case WKY: case WKE:
+            break;
+        case WGI:
+            _chckWGI(Bitboard::Square[sq], mk, m);
+            break;
+        case WKI: case WTO: case WNY: case WNK: case WNG:
+            mk &= Effect::AD(_kingSB, Piece::BKI);
+            _moveWKI(mk, sq, m);
+            break;
+        case WUM:
+            _chckWUM(Bitboard::Square[sq], mk, m);
+            break;
+        case WRY:
+            _chckWRY(Bitboard::Square[sq], mk, m);
+            break;
+        case WKA:
+            _chckWKA(Bitboard::Square[sq], mk, m);
+            break;
+        case WHI:
+            _chckWHI(Bitboard::Square[sq], mk, m);
             break;
         default:
             _GAME_POSITION_CHECK(0);
@@ -3199,7 +4369,7 @@ void Position::_getOutB (Array<Move::Move, Move::Max> &m)
 
     // capture the piece making a check (except for a move to caputure by OU)
     auto mask = Bitboard::Invert[_kingSB] & _pinnd;
-    _moveBTo(mask, _chckp.lsb(), m);
+    _moveToB(mask, _chckp.lsb(), m);
 
     // drop a piece to block
     _dropBFU(_chkDE, m);
@@ -3211,7 +4381,7 @@ void Position::_getOutB (Array<Move::Move, Move::Max> &m)
     auto sq = _chkDE;
     while (sq) {
         auto s = sq.pick();
-        _moveBTo(mask, s, m);
+        _moveToB(mask, s, m);
     }
 
     // move OU to get out of check
@@ -3236,7 +4406,7 @@ void Position::_fstOutB (Array<Move::Move, Move::Max> &m)
 
     // capture the piece making a check (except for a move to caputure by OU)
     auto mask = Bitboard::Invert[_kingSB];
-    _fastBTo(mask, _chckp.lsb(), m);
+    _fastToB(mask, _chckp.lsb(), m);
 
     // drop a piece to block
     _dropBFU(_chkDE, m);
@@ -3248,7 +4418,7 @@ void Position::_fstOutB (Array<Move::Move, Move::Max> &m)
     auto sq = _chkDE;
     while (sq) {
         auto s = sq.pick();
-        _fastBTo(mask, s, m);
+        _fastToB(mask, s, m);
     }
 
     // move OU to get out of check
@@ -3274,7 +4444,7 @@ void Position::_getOutW (Array<Move::Move, Move::Max> &m)
 
     // capture the piece making a check (except for a move to caputure by OU)
     auto mask = Bitboard::Invert[_kingSW] & _pinnd;
-    _moveWTo(mask, _chckp.lsb(), m);
+    _moveToW(mask, _chckp.lsb(), m);
 
     // drop a piece to block
     _dropWFU(_chkDE, m);
@@ -3286,7 +4456,7 @@ void Position::_getOutW (Array<Move::Move, Move::Max> &m)
     auto sq = _chkDE;
     while (sq) {
         auto s = sq.pick();
-        _moveWTo(mask, s, m);
+        _moveToW(mask, s, m);
     }
 
     // move OU to get out of check
@@ -3311,7 +4481,7 @@ void Position::_fstOutW (Array<Move::Move, Move::Max> &m)
 
     // capture the piece making a check (except for a move to caputure by OU)
     auto mask = Bitboard::Invert[_kingSW];
-    _fastWTo(mask, _chckp.lsb(), m);
+    _fastToW(mask, _chckp.lsb(), m);
 
     // drop a piece to block
     _dropWFU(_chkDE, m);
@@ -3323,7 +4493,7 @@ void Position::_fstOutW (Array<Move::Move, Move::Max> &m)
     auto sq = _chkDE;
     while (sq) {
         auto s = sq.pick();
-        _fastWTo(mask, s, m);
+        _fastToW(mask, s, m);
     }
 
     // move OU to get out of check
@@ -3408,9 +4578,9 @@ void Position::_escapeW (Array<Move::Move, Move::Max> &m)
 
 /**
  * Move the black piece from square to square
- * @parm from square move from
- * @parm to   square move to
- * @parm m array to store moves
+ * @param from square move from
+ * @param to   square move to
+ * @param m    array to store moves
  */
 void Position::_moveBlack (Square::Square from, Square::Square to,
                            Array<Move::Move, Move::Max> &m         )
@@ -3419,52 +4589,52 @@ void Position::_moveBlack (Square::Square from, Square::Square to,
     switch (_board[from]) {
     case Piece::BFU:
         if (BFUMPromote[to]) {
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::promote(from, to)); 
         } else
         if (BlackCanPromote[to]) {
-            _move.add(Move::move   (from, to)); 
-            m    .add(Move::promote(from, to)); 
+            _m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::BKY:
         if (BFUMPromote[to]) {
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::promote(from, to)); 
         } else
         if (BlackCanPromote[to]) {
-            m.    add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::BKE:
         if (BKEMPromote[to]) {
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::promote(from, to)); 
         } else
         if (BlackCanPromote[to]) {
-            m.    add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::BGI:
         if (BlackCanPromote[from] || BlackCanPromote[to]) {
-            m.    add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::BKA:
     case Piece::BHI:
         if (BlackCanPromote[from] || BlackCanPromote[to]) {
-            _move.add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+            _m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     default:
@@ -3477,9 +4647,9 @@ void Position::_moveBlack (Square::Square from, Square::Square to,
 
 /**
  * Move the black piece from square to square (fast)
- * @parm from square move from
- * @parm to   square move to
- * @parm m array to store moves
+ * @param from square move from
+ * @param to   square move to
+ * @param m array to store moves
  */
 void Position::_fastBlack (Square::Square from, Square::Square to,
                            Array<Move::Move, Move::Max> &m         )
@@ -3520,7 +4690,7 @@ void Position::_fastBlack (Square::Square from, Square::Square to,
             m.add(Move::move   (from, to)); 
             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+            m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::BKA:
@@ -3541,9 +4711,9 @@ void Position::_fastBlack (Square::Square from, Square::Square to,
 
 /**
  * Move the white piece from square to square
- * @parm from square move from
- * @parm to   square move to
- * @parm m array to store moves
+ * @param from square move from
+ * @param to   square move to
+ * @param m array to store moves
  */
 void Position::_moveWhite (Square::Square from, Square::Square to,
                            Array<Move::Move, Move::Max> &m         )
@@ -3552,52 +4722,52 @@ void Position::_moveWhite (Square::Square from, Square::Square to,
     switch (_board[from]) {
     case Piece::WFU:
         if (WFUMPromote[to]) {
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::promote(from, to)); 
         } else
         if (WhiteCanPromote[to]) {
-            _move.add(Move::move   (from, to)); 
-            m    .add(Move::promote(from, to)); 
+            _m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::WKY:
         if (WFUMPromote[to]) {
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::promote(from, to)); 
         } else
         if (WhiteCanPromote[to]) {
-            m.    add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::WKE:
         if (WKEMPromote[to]) {
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::promote(from, to)); 
         } else
         if (WhiteCanPromote[to]) {
-            m.    add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::WGI:
         if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
-            m.    add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+             m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     case Piece::WKA:
     case Piece::WHI:
         if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
-            _move.add(Move::move   (from, to)); 
-            m.    add(Move::promote(from, to)); 
+            _m.add(Move::move   (from, to)); 
+             m.add(Move::promote(from, to)); 
         } else {
-            m.    add(Move::move   (from, to)); 
+             m.add(Move::move   (from, to)); 
         }
         break;
     default:
@@ -3610,9 +4780,9 @@ void Position::_moveWhite (Square::Square from, Square::Square to,
 
 /**
  * Move the white piece from square to square (fast)
- * @parm from square move from
- * @parm to   square move to
- * @parm m array to store moves
+ * @param from square move from
+ * @param to   square move to
+ * @param m    array to store moves
  */
 void Position::_fastWhite (Square::Square from, Square::Square to,
                            Array<Move::Move, Move::Max> &m         )
@@ -3689,10 +4859,7 @@ void Position::_dropBFU (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
     // Nifu check
     auto sq = _bbord[Piece::BFU].column() & mask & CanDropBFU;
-    while (sq) {
-        auto s = sq.pick();
-        m.add(Move::drop(h, s));
-    }
+    _dropMove(h, sq, m);
 
 }
 
@@ -3715,10 +4882,7 @@ void Position::_dropWFU (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
     // Nifu check
     auto sq = _bbord[Piece::WFU].column() & mask & CanDropWFU;
-    while (sq) {
-        auto s = sq.pick();
-        m.add(Move::drop(h, s));
-    }
+    _dropMove(h, sq, m);
 
 }
 
@@ -3740,10 +4904,7 @@ void Position::_dropBKY (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     }
 
     auto sq = mask & CanDropBFU;
-    while (sq) {
-        auto s = sq.pick();
-        m.add(Move::drop(h, s));
-    }
+    _dropMove(h, sq, m);
 
 }
 
@@ -3765,10 +4926,7 @@ void Position::_dropWKY (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     }
 
     auto sq = mask & CanDropWFU;
-    while (sq) {
-        auto s = sq.pick();
-        m.add(Move::drop(h, s));
-    }
+    _dropMove(h, sq, m);
 
 }
 
@@ -3790,10 +4948,7 @@ void Position::_dropBKE (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     }
 
     auto sq = mask & CanDropBKE;
-    while (sq) {
-        auto s = sq.pick();
-        m.add(Move::drop(h, s));
-    }
+    _dropMove(h, sq, m);
 
 }
 
@@ -3815,10 +4970,7 @@ void Position::_dropWKE (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
     }
 
     auto sq = mask & CanDropWKE;
-    while (sq) {
-        auto s = sq.pick();
-        m.add(Move::drop(h, s));
-    }
+    _dropMove(h, sq, m);
 
 }
 
@@ -3841,6 +4993,56 @@ void Position::_dropBOT (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
             if (_hands[Color::Black][pc] > 0) {
                 m.add(Move::drop(pc, s));
             }
+        }
+    }
+
+}
+
+
+
+/**
+ * Drop other black pieces to give check
+ * @param m array to store moves
+ *
+ */
+void Position::_dchkBOT (Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard                sq;
+
+    // GI
+    sq = Effect::AD(_kingSW, Piece::WGI) & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::Black][Piece::GI] > 0) {
+            m.add(Move::drop(Piece::GI, s));
+        }
+    }
+
+    // KI
+    sq = Effect::AD(_kingSW, Piece::WKI) & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::Black][Piece::KI] > 0) {
+            m.add(Move::drop(Piece::KI, s));
+        }
+    }
+
+    // KA
+    sq = Effect::KA(_kingSW, _ocupd)     & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::Black][Piece::KA] > 0) {
+            m.add(Move::drop(Piece::KA, s));
+        }
+    }
+
+    // KA
+    sq = Effect::HI(_kingSW, _ocupd)     & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::Black][Piece::HI] > 0) {
+            m.add(Move::drop(Piece::HI, s));
         }
     }
 
@@ -3873,12 +5075,62 @@ void Position::_dropWOT (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Drop other white pieces to give check
+ * @param m array to store moves
+ *
+ */
+void Position::_dchkWOT (Array<Move::Move, Move::Max> &m)
+{
+
+    Bitboard                sq;
+
+    // GI
+    sq = Effect::AD(_kingSB, Piece::BGI) & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::White][Piece::GI] > 0) {
+            m.add(Move::drop(Piece::GI, s));
+        }
+    }
+
+    // KI
+    sq = Effect::AD(_kingSB, Piece::BKI) & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::White][Piece::KI] > 0) {
+            m.add(Move::drop(Piece::KI, s));
+        }
+    }
+
+    // KA
+    sq = Effect::KA(_kingSB, _ocupd)     & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::White][Piece::KA] > 0) {
+            m.add(Move::drop(Piece::KA, s));
+        }
+    }
+
+    // KA
+    sq = Effect::HI(_kingSB, _ocupd)     & _empty;
+    while (sq) {
+        auto s = sq.pick();
+        if (_hands[Color::White][Piece::HI] > 0) {
+            m.add(Move::drop(Piece::HI, s));
+        }
+    }
+
+}
+
+
+
+/**
  * All the moves to certain square
  * @param mask mask
  * @param dst  destination
  * @param m    array to store moves
  */
-void Position::_moveBTo (const Bitboard &mask, Square::Square dst,
+void Position::_moveToB (const Bitboard &mask, Square::Square dst,
                                     Array<Move::Move, Move::Max> &m)
 {
 
@@ -3899,7 +5151,7 @@ void Position::_moveBTo (const Bitboard &mask, Square::Square dst,
  * @param dst  destination
  * @param m    array to store moves
  */
-void Position::_fastBTo (const Bitboard &mask, Square::Square dst,
+void Position::_fastToB (const Bitboard &mask, Square::Square dst,
                                     Array<Move::Move, Move::Max> &m)
 {
 
@@ -3920,7 +5172,7 @@ void Position::_fastBTo (const Bitboard &mask, Square::Square dst,
  * @param dst  destination
  * @param m    array to store moves
  */
-void Position::_moveWTo (const Bitboard &mask, Square::Square dst,
+void Position::_moveToW (const Bitboard &mask, Square::Square dst,
                                     Array<Move::Move, Move::Max> &m)
 {
 
@@ -3942,7 +5194,7 @@ void Position::_moveWTo (const Bitboard &mask, Square::Square dst,
  * @param dst  destination
  * @param m    array to store moves
  */
-void Position::_fastWTo (const Bitboard &mask, Square::Square dst,
+void Position::_fastToW (const Bitboard &mask, Square::Square dst,
                                     Array<Move::Move, Move::Max> &m)
 {
 
@@ -3955,6 +5207,688 @@ void Position::_fastWTo (const Bitboard &mask, Square::Square dst,
 
 
 }
+
+
+
+/**
+ * Move the black piece from square to square this function is specialized
+ * to discovering check
+ * @param mask mask
+ * @param from square move from
+ * @param m    array to store moves
+ */
+void Position::_chckFromB (const Bitboard &mask, Square::Square from,
+                                      Array<Move::Move, Move::Max> &m)
+{
+
+    using namespace Piece;
+
+    switch (_board[from]) {
+    case BFU:
+        { auto ef = Bitboard::Square[from + Square::UWARD] & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BFUMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (BlackCanPromote[to]) {
+                    _m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BKY:
+        { auto ef = Effect::KB(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BFUMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (BlackCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move   (from, to)); 
+                }
+            }
+        }
+        break;
+    case BKE:
+        { auto ef = Effect::AD(from, BKE) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BKEMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (BlackCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::BKE) & _bbord[Piece::WOU])) {
+                        m.add(Move::move(from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case BGI:
+        { auto ef = Effect::AD(from, BGI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BlackCanPromote[from] || BlackCanPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BGI) & _bbord[Piece::WOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::BGI) & _bbord[Piece::WOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case BKI: case BTO: case BNY: case BNK: case BNG:
+        { auto ef = Effect::AD(from, BKI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BUM:
+        { auto ef = (Effect::AD(from, BUM) | Effect::KA(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                                            & _bbord[Piece::WOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BRY:
+        { auto ef = (Effect::AD(from, BRY) | Effect::HI(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                           & _bbord[Piece::WOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BKA:
+        { auto ef = Effect::KA(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BlackCanPromote[from] || BlackCanPromote[to]) {
+                    if (! (Effect::KA(to, _ocupd) & _bbord[Piece::WOU])) {
+                        _m.add(Move::move   (from, to)); 
+                    }
+                    if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                                & _bbord[Piece::WOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::KA(to, _ocupd) & _bbord[Piece::WOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case BHI:
+        { auto ef = Effect::HI(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BlackCanPromote[from] || BlackCanPromote[to]) {
+                    if (! (Effect::HI(to, _ocupd) & _bbord[Piece::WOU])) {
+                        _m.add(Move::move   (from, to)); 
+                    }
+                    if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                                & _bbord[Piece::WOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::HI(to, _ocupd) & _bbord[Piece::WOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    default:
+        _GAME_POSITION_CHECK(0);
+        break;
+    }
+
+}
+
+
+
+
+/**
+ * Move the black piece from square to square (fast). this function is
+ * specialized to discovering check 
+ * @param mask mask
+ * @param from square move from
+ * @param m    array to store moves
+ */
+void Position::_cfstFromB (const Bitboard &mask, Square::Square from,
+                                      Array<Move::Move, Move::Max> &m)
+{
+
+    using namespace Piece;
+
+    switch (_board[from]) {
+    case BFU:
+        { auto ef = Bitboard::Square[from + Square::UWARD] & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BlackCanPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BKY:
+        { auto ef = Effect::KB(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BFUMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (BlackCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move   (from, to)); 
+                }
+            }
+        }
+        break;
+    case BKE:
+        { auto ef = Effect::AD(from, BKE) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BKEMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (BlackCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::BKE) & _bbord[Piece::WOU])) {
+                        m.add(Move::move(from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case BGI:
+        { auto ef = Effect::AD(from, BGI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BlackCanPromote[from] || BlackCanPromote[to]) {
+                    if (! (Effect::AD(to, Piece::BGI) & _bbord[Piece::WOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                    if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::BGI) & _bbord[Piece::WOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case BKI: case BTO: case BNY: case BNK: case BNG:
+        { auto ef = Effect::AD(from, BKI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! (Effect::AD(to, Piece::BKI) & _bbord[Piece::WOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BUM:
+        { auto ef = (Effect::AD(from, BUM) | Effect::KA(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                                            & _bbord[Piece::WOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BRY:
+        { auto ef = (Effect::AD(from, BRY) | Effect::HI(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                           & _bbord[Piece::WOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case BKA:
+        { auto ef = Effect::KA(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BlackCanPromote[from] || BlackCanPromote[to]) {
+                    if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                                  & _bbord[Piece::WOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::KA(to, _ocupd) & _bbord[Piece::WOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case BHI:
+        { auto ef = Effect::HI(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (BlackCanPromote[from] || BlackCanPromote[to]) {
+                    if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                                  & _bbord[Piece::WOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::HI(to, _ocupd) & _bbord[Piece::WOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    default:
+        _GAME_POSITION_CHECK(0);
+        break;
+    }
+
+}
+
+
+
+/**
+ * Move the white piece from square to square this function is specialized
+ * to discovering check
+ * @param mask mask
+ * @param from square move from
+ * @param m    array to store moves
+ */
+void Position::_chckFromW (const Bitboard &mask, Square::Square from,
+                                      Array<Move::Move, Move::Max> &m)
+{
+
+    using namespace Piece;
+
+    switch (_board[from]) {
+    case WFU:
+        { auto ef = Bitboard::Square[from + Square::DWARD] & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WFUMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (WhiteCanPromote[to]) {
+                    _m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WKY:
+        { auto ef = Effect::KW(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WFUMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (WhiteCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WKE:
+        { auto ef = Effect::AD(from, WKE) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WKEMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (WhiteCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::WKE) & _bbord[Piece::BOU])) {
+                        m.add(Move::move(from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case WGI:
+        { auto ef = Effect::AD(from, WGI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WGI) & _bbord[Piece::BOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::WGI) & _bbord[Piece::BOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case WKI: case WTO: case WNY: case WNK: case WNG:
+        { auto ef = Effect::AD(from, WKI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WUM:
+        { auto ef = (Effect::AD(from, WUM) | Effect::KA(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                            & _bbord[Piece::BOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WRY:
+        { auto ef = (Effect::AD(from, WRY) | Effect::HI(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                            & _bbord[Piece::BOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WKA:
+        { auto ef = Effect::KA(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
+                    if (! (Effect::KA(to, _ocupd) & _bbord[Piece::BOU])) {
+                        _m.add(Move::move   (from, to)); 
+                    }
+                    if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                                  & _bbord[Piece::BOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::KA(to, _ocupd) & _bbord[Piece::BOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case WHI:
+        { auto ef = Effect::HI(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
+                    if (! (Effect::HI(to, _ocupd) & _bbord[Piece::BOU])) {
+                        _m.add(Move::move   (from, to)); 
+                    }
+                    if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                                  & _bbord[Piece::BOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::HI(to, _ocupd) & _bbord[Piece::BOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    default:
+        _GAME_POSITION_CHECK(0);
+        break;
+    }
+
+}
+
+
+
+/**
+ * Move the white piece from square to square (fast). this function is
+ * specialized to discovering check
+ * @param mask mask
+ * @param from square move from
+ * @param m    array to store moves
+ */
+void Position::_cfstFromW (const Bitboard &mask, Square::Square from,
+                                      Array<Move::Move, Move::Max> &m)
+{
+
+    using namespace Piece;
+
+    switch (_board[from]) {
+    case WFU:
+        { auto ef = Bitboard::Square[from + Square::DWARD] & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WhiteCanPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WKY:
+        { auto ef = Effect::KW(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WFUMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (WhiteCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                     m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WKE:
+        { auto ef = Effect::AD(from, WKE) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WKEMPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else
+                if (WhiteCanPromote[to]) {
+                     m.add(Move::move(from, to)); 
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::WKE) & _bbord[Piece::BOU])) {
+                        m.add(Move::move(from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case WGI:
+        { auto ef = Effect::AD(from, WGI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
+                    if (! (Effect::AD(to, Piece::WGI) & _bbord[Piece::BOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                    if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                        m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::AD(to, Piece::WGI) & _bbord[Piece::BOU])) {
+                        m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case WKI: case WTO: case WNY: case WNK: case WNG:
+        { auto ef = Effect::AD(from, WKI) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! (Effect::AD(to, Piece::WKI) & _bbord[Piece::BOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WUM:
+        { auto ef = (Effect::AD(from, WUM) | Effect::KA(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                            & _bbord[Piece::BOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WRY:
+        { auto ef = (Effect::AD(from, WRY) | Effect::HI(from, _ocupd)) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                            & _bbord[Piece::BOU])) {
+                    m.add(Move::move(from, to)); 
+                }
+            }
+        }
+        break;
+    case WKA:
+        { auto ef = Effect::KA(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
+                    if (! ((Effect::OC(to) | Effect::KA(to, _ocupd))
+                                                  & _bbord[Piece::BOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::KA(to, _ocupd) & _bbord[Piece::BOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    case WHI:
+        { auto ef = Effect::HI(from, _ocupd) & mask;
+            while (ef) {
+                auto to = ef.pick();
+                if (WhiteCanPromote[from] || WhiteCanPromote[to]) {
+                    if (! ((Effect::OC(to) | Effect::HI(to, _ocupd))
+                                                  & _bbord[Piece::BOU])) {
+                         m.add(Move::promote(from, to)); 
+                    }
+                } else {
+                    if (! (Effect::HI(to, _ocupd) & _bbord[Piece::BOU])) {
+                         m.add(Move::move   (from, to)); 
+                    }
+                }
+            }
+        }
+        break;
+    default:
+        _GAME_POSITION_CHECK(0);
+        break;
+    }
+
+}
+
 
 
 /**
@@ -3993,7 +5927,7 @@ bool Position::_chkEffectB (Square::Square sq)
    }
 
     // check KY
-    if ((Effect::KY(Color::White, sq, _ocupd) & _bbord[aky]))   {
+    if ((Effect::KW(sq, _ocupd) & _bbord[aky]))   {
         return true;
     }
 
@@ -4039,7 +5973,7 @@ bool Position::_chkEffectW (Square::Square sq)
     }
 
     // check KY
-    if ((Effect::KY(Color::Black, sq, _ocupd) & _bbord[aky]))   {
+    if ((Effect::KB(sq, _ocupd) & _bbord[aky]))   {
         return true;
     }
 
@@ -4083,7 +6017,7 @@ void Position::_allEffectB (Square::Square sq)
     _effect |= ka;
 
     // check KY
-    auto ky = Effect::KY(Color::White, sq, _ocupd) & _bbord[aky];
+    auto ky = Effect::KW(sq, _ocupd) & _bbord[aky];
     _effect |= ky;
 
 }
@@ -4124,7 +6058,7 @@ void Position::_allEffectW (Square::Square sq)
     _effect |= ka;
 
     // check KY
-    auto ky = Effect::KY(Color::Black, sq, _ocupd) & _bbord[aky];
+    auto ky = Effect::KB(sq, _ocupd) & _bbord[aky];
     _effect |= ky;
 
 }
@@ -4161,8 +6095,8 @@ void Position::_makePinB (void)
     auto mky = _bbord[aky] & (~_chckp);
     while (mky) {
         auto sq  = mky.pick();
-        auto yk  = Effect::KY(Color::White, sq, _ocupd);
-        auto yo  = Effect::KY(Color::Black, guard, _ocupd);
+        auto yk  = Effect::KW(sq, _ocupd);
+        auto yo  = Effect::KB(guard, _ocupd);
         _pinnd  ^= (yk & yo & ify);
     }
 
@@ -4221,8 +6155,8 @@ void Position::_makePinW (void)
     auto mky = _bbord[aky] & (~_chckp);
     while (mky) {
         auto sq  = mky.pick();
-        auto yk  = Effect::KY(Color::Black, sq, _ocupd);
-        auto yo  = Effect::KY(Color::White, guard, _ocupd);
+        auto yk  = Effect::KB(sq, _ocupd);
+        auto yo  = Effect::KW(guard, _ocupd);
         _pinnd  ^= (yk & yo & ify);
     }
 

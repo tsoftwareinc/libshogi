@@ -1012,7 +1012,7 @@ static void _initADEffect (void)
             // FU
             _ADEffectT[sq][polar(Piece::FU, c)] = KY(c, sq, Bitboard::Fill);
 
-            // KY doesn't have adjacent effect but long-distance effect
+            // KY has none of adjacent effect but long-distance effect
             _ADEffectT[sq][polar(Piece::KY, c)] = Bitboard::Zero;
 
             // KE 
@@ -1029,10 +1029,10 @@ static void _initADEffect (void)
             _ADEffectT[sq][polar(Piece::NK, c)] = _KIEffectCalc(c, sq);
             _ADEffectT[sq][polar(Piece::NG, c)] = _KIEffectCalc(c, sq);
 
-            // KA doesn't have adjacent effect but long-distance effect
+            // KA has none of adjacent effect but long-distance effect
             _ADEffectT[sq][polar(Piece::KA, c)] = Bitboard::Zero;
 
-            // HI doesn't have adjacent effect but long-distance effect
+            // HI has none of adjacent effect but long-distance effect
             _ADEffectT[sq][polar(Piece::HI, c)] = Bitboard::Zero;
 
             // OU

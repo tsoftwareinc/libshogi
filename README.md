@@ -49,8 +49,7 @@
 
    If your processor supports BMI2 (`cat /proc/cpuinfo | grep bmi2`
    says something - on linux) you should use native PEXT instruction
-   for the better performance. To do this, you may specify this
-   option as:
+   for the better performance. To do this, specify the option as:
 
 ```
    BMI2    = y
@@ -60,8 +59,8 @@
    operation about the position. If the cost of copying is still
    an issue in your program, you can make the context cache^1 TLS.
    Using TLS, there is some performance penalty because you have to
-   check the address each time you access it. To do this, you may
-   specify this option as:
+   check the address each time you access it. To do this, specify
+   the option as:
 
 ```
    TLS     = y

@@ -48,6 +48,22 @@ else
     echo NG
 fi
 
+echo "TEST OUTE   :"
+if time ./testoute kifulist
+then
+    echo OK
+else
+    echo NG
+fi
+
+echo "TEST OFST   :"
+if time ./testofst kifulist
+then
+    echo OK
+else
+    echo NG
+fi
+
 echo "TEST UNDO   :"
 if time ./testundo kifulist
 then

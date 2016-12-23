@@ -207,6 +207,48 @@ static void printMoveLibsh (const Position &p)
 
 
 /**
+ * Crosschek moves of lesserpyon 
+ * 
+ */
+static void aroundLibshogi (const Position &p)
+{
+
+    for (size_t i = 0; i < tenum; ++i) {
+        bool check = false;
+        for (auto m : move) {
+            auto to   = toLesser[Move::to  (m)];
+            auto from = toLesser[Move::from(m)];
+            if (te[i].promote      && (m & Move::Promote) == 0) {
+                continue;
+            }
+            if (te[i].from == 0) {
+                int pk = toPiece[(te[i].koma & 0xf)];
+                if (pk == Move::from(m) && te[i].to == to && (m & Move::Drop)) {
+                    check = true;
+                    break;
+                }
+            } else
+            if (te[i].from == from && te[i].to == to) {
+                    check = true;
+                    break;
+            }
+        }
+        if (! check) {
+            te[i].Print();
+            std::cerr << std::endl << "is missing." << std::endl;
+            p.show();
+            printMoveLessr();
+            std::cerr << std::endl;
+            printMoveLibsh(p);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+}
+
+
+
+/**
  * Crosschek moves of Libshogi
  * 
  */
@@ -221,12 +263,12 @@ static void aroundLesserpy (const Position &p)
             if (te[i].promote == 0 && (m & Move::Promote)     ) {
                 continue;
             }
-            if (te[i].promote      && (m & Move::Promote) == 0) {
+            if ((te[i].promote)    && (m & Move::Promote) == 0) {
                 continue;
             }
             if (te[i].from == 0) {
                 int pk = toPiece[(te[i].koma & 0xf)];
-                if (pk == Move::from(m) && te[i].to == to && (m & Move::Drop)) {
+                if (pk == Move::from(m) && te[i].to == to) {
                     check = true;
                     break;
                 }
@@ -249,6 +291,8 @@ static void aroundLesserpy (const Position &p)
             std::cerr << std::endl << "is missing." << std::endl;
             p.show();
             printMoveLessr();
+            std::cerr << std::endl;
+            printMoveLibsh(p);
             exit(EXIT_FAILURE);
         }
     }
@@ -364,32 +408,46 @@ int main (int argc, char *argv[])
             if (m.move[0] == '%') {
                 break;
             }
-            // Generate legal moves
-            // libshogi
-            move.setsz(0);
-            p.genCapt(move);
-            // lesserpyon
-            tenum = k.MakeLegalMoves(turn, te);
-            //
-            // Check uniqueness
-            //
-            for (auto mv1 : move) {
-                int count = 0;
-                for (auto mv2 : move) {
-                    if (mv1 == mv2) {
-                        ++count;
+            // In check?
+            if (! p.check()) {
+                // Generate moves giving check
+                // libshogi
+                move.setsz(0);
+                Array<Move::Move, Move::Max> _move;
+                p.genCapt(_move);
+                for (auto mv : _move) {
+                    auto back = p.move(mv);
+                    if (p.check()) {
+                        move.add(mv);
+                    }
+                    p.undo(back);
+                }
+                p.genCFst(move);
+                // lesserpyon
+                tenum = k.MakeChecks(turn, te);
+                // 
+                // Check uniqueness
+                // 
+                for (auto mv1 : move) {
+                    int count = 0;
+                    for (auto mv2 : move) {
+                        if (mv1 == mv2) {
+                            ++count;
+                        }
+                    }
+                    if (count != 1) {
+                        std::cerr << "Duplication :" << std::endl
+                                  << p               << std::endl;
+                        printMoveLibsh(p);
+                        exit(EXIT_SUCCESS);
                     }
                 }
-                if (count != 1) {
-                    printMoveLibsh(p);
-                    std::cerr << p << std::endl;
-                    exit(EXIT_SUCCESS);
-                }
+                // 
+                // Cross check
+                // 
+                aroundLibshogi(p);
+                aroundLesserpy(p);
             }
-            //
-            // Cross check
-            // 
-            aroundLesserpy(p);
             // Proceed
             // libshogi
             p.move(m);

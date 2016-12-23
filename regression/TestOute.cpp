@@ -207,15 +207,15 @@ static void printMoveLibsh (const Position &p)
 
 
 /**
- * Crosschek moves of Libshogi
+ * Crosschek moves of lesserpyon 
  * 
  */
-static void aroundLesserpy (const Position &p)
+static void aroundLibshogi (const Position &p)
 {
 
-    for (auto m : move) {
+    for (size_t i = 0; i < tenum; ++i) {
         bool check = false;
-        for (size_t i = 0; i < tenum; ++i) {
+        for (auto m : move) {
             auto to   = toLesser[Move::to  (m)];
             auto from = toLesser[Move::from(m)];
             if (te[i].promote == 0 && (m & Move::Promote)     ) {
@@ -237,18 +237,60 @@ static void aroundLesserpy (const Position &p)
             }
         }
         if (! check) {
-            if (uchifudume(p, m)) {
+            te[i].Print();
+            std::cerr << std::endl << "is missing." << std::endl;
+            p.show();
+            printMoveLessr();
+            std::cerr << std::endl;
+            printMoveLibsh(p);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+}
+
+
+
+/**
+ * Crosschek moves of Libshogi
+ * 
+ */
+static void aroundLesserpy (const Position &p)
+{
+
+    for (auto m : move) {
+        bool check = false;
+        for (size_t i = 0; i < tenum; ++i) {
+            auto to   = toLesser[Move::to  (m)];
+            auto from = toLesser[Move::from(m)];
+            if (te[i].promote == 0 && (m & Move::Promote)     ) {
                 continue;
             }
-            MyPosition _p(p);
-            _p.move(m);
-            if (_p.recheck()) {
+            if ((te[i].promote)    && (m & Move::Promote) == 0) {
+                continue;
+            }
+            if (te[i].from == 0) {
+                int pk = toPiece[(te[i].koma & 0xf)];
+                if (pk == Move::from(m) && te[i].to == to) {
+                    check = true;
+                    break;
+                }
+            } else
+            if (te[i].from == from && te[i].to == to) {
+                    check = true;
+                    break;
+            }
+        }
+        if (! check) {
+            if (uchifudume(p, m)) {
                 continue;
             }
             p.show(m);
             std::cerr << std::endl << "is missing." << std::endl;
             p.show();
             printMoveLessr();
+            std::cerr << std::endl;
+            printMoveLibsh(p);
             exit(EXIT_FAILURE);
         }
     }
@@ -364,32 +406,38 @@ int main (int argc, char *argv[])
             if (m.move[0] == '%') {
                 break;
             }
-            // Generate legal moves
-            // libshogi
-            move.setsz(0);
-            p.genCapt(move);
-            // lesserpyon
-            tenum = k.MakeLegalMoves(turn, te);
-            //
-            // Check uniqueness
-            //
-            for (auto mv1 : move) {
-                int count = 0;
-                for (auto mv2 : move) {
-                    if (mv1 == mv2) {
-                        ++count;
+            // In check?
+            if (! p.check()) {
+                // Generate moves giving check
+                // libshogi
+                move.setsz(0);
+                p.genChck (move);
+                p.minorMove(move);
+                // lesserpyon
+                tenum = k.MakeChecks(turn, te);
+                // 
+                // Check uniqueness
+                // 
+                for (auto mv1 : move) {
+                    int count = 0;
+                    for (auto mv2 : move) {
+                        if (mv1 == mv2) {
+                            ++count;
+                        }
+                    }
+                    if (count != 1) {
+                        std::cerr << "Duplication :" << std::endl
+                                  << p               << std::endl;
+                        printMoveLibsh(p);
+                        exit(EXIT_SUCCESS);
                     }
                 }
-                if (count != 1) {
-                    printMoveLibsh(p);
-                    std::cerr << p << std::endl;
-                    exit(EXIT_SUCCESS);
-                }
+                // 
+                // Cross check
+                // 
+                aroundLibshogi(p);
+                aroundLesserpy(p);
             }
-            //
-            // Cross check
-            // 
-            aroundLesserpy(p);
             // Proceed
             // libshogi
             p.move(m);

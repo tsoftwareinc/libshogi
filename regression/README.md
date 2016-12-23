@@ -3,8 +3,8 @@
 ## REQUIREMENTS
 
    The programs in this directory are for doing regression test.
-   'lesserpyon' is required for testing to crosscheck. You also
-   need a large amount of kifu files in CSA format.
+   'lesserpyon' is required to crosscheck. You also need a large
+   amount of kifu files in CSA format.
 
    - kifulist
 
@@ -12,9 +12,9 @@
 
    - Memory
 
-   According to number of kifu files, testhash uses a lot of
-   memory. More than 10 GB is required for 35,000 files. You
-   may comment out testhash in test.sh script.
+   testhash uses a lot of memory. More than 10 GB is required for
+   35,000 kifu files. You may comment out testhash in test.sh
+   script.
 
    - Installation of lesserpyon
 
@@ -51,41 +51,53 @@
    about 100 positions each :
 
 ```
-   TEST CHECK  :
-   3.14user 0.08system 0:03.23elapsed 99%CPU (0avgtext+0avgdata 12708maxresident)k
-   0inputs+0outputs (0major+844minor)pagefaults 0swaps
-   OK
-   TEST MOVE   :
-   71.51user 0.11system 1:11.63elapsed 99%CPU (0avgtext+0avgdata 12988maxresident)k
-   0inputs+0outputs (0major+399minor)pagefaults 0swaps
-   OK
-   TEST EFFECT :
-   6.80user 0.08system 0:06.88elapsed 99%CPU (0avgtext+0avgdata 13016maxresident)k
-   0inputs+0outputs (0major+880minor)pagefaults 0swaps
-   OK
-   TEST PIN    :
-   3.40user 0.09system 0:03.49elapsed 99%CPU (0avgtext+0avgdata 13216maxresident)k
-   0inputs+0outputs (0major+400minor)pagefaults 0swaps
-   OK
-   TEST FAST   :
-   66.19user 0.11system 1:06.31elapsed 99%CPU (0avgtext+0avgdata 12684maxresident)k
-   0inputs+0outputs (0major+864minor)pagefaults 0swaps
-   OK
-   TEST UNDO   :
-   124.56user 0.12system 2:04.70elapsed 99%CPU (0avgtext+0avgdata 12752maxresident)k
-   0inputs+0outputs (0major+378minor)pagefaults 0swaps
-   OK
-   TEST GETOUT :
-   3.16user 0.04system 0:03.21elapsed 99%CPU (0avgtext+0avgdata 12756maxresident)k
-   0inputs+0outputs (0major+390minor)pagefaults 0swaps
-   OK
-   TEST VALUE  :
-   3.29user 0.07system 0:03.37elapsed 99%CPU (0avgtext+0avgdata 12784maxresident)k
-   0inputs+0outputs (0major+846minor)pagefaults 0swaps
-   OK
-   TEST HASH   :
-   9.80user 0.52system 0:10.34elapsed 99%CPU (0avgtext+0avgdata 2517704maxresident)k
-   0inputs+0outputs (0major+626602minor)pagefaults 0swaps
-   OK
+TEST CHECK  :
+2.56user 0.06system 0:02.63elapsed 99%CPU (0avgtext+0avgdata 12776maxresident)k
+0inputs+0outputs (0major+850minor)pagefaults 0swaps
+OK
+TEST MOVE   :
+72.47user 0.15system 1:12.64elapsed 99%CPU (0avgtext+0avgdata 12836maxresident)k
+0inputs+0outputs (0major+861minor)pagefaults 0swaps
+OK
+TEST EFFECT :
+6.48user 0.06system 0:06.55elapsed 99%CPU (0avgtext+0avgdata 13132maxresident)k
+0inputs+0outputs (0major+415minor)pagefaults 0swaps
+OK
+TEST PIN    :
+3.51user 0.10system 0:03.61elapsed 99%CPU (0avgtext+0avgdata 13012maxresident)k
+0inputs+0outputs (0major+396minor)pagefaults 0swaps
+OK
+TEST FAST   :
+66.75user 0.09system 1:06.85elapsed 99%CPU (0avgtext+0avgdata 12832maxresident)k
+0inputs+0outputs (0major+380minor)pagefaults 0swaps
+OK
+TEST CAPT   :
+18.80user 0.10system 0:18.91elapsed 99%CPU (0avgtext+0avgdata 12960maxresident)k
+0inputs+0outputs (0major+406minor)pagefaults 0swaps
+OK
+TEST OUTE   :
+74.50user 0.09system 1:14.60elapsed 99%CPU (0avgtext+0avgdata 13052maxresident)k
+0inputs+0outputs (0major+419minor)pagefaults 0swaps
+OK
+TEST OFST   :
+77.43user 0.14system 1:17.59elapsed 99%CPU (0avgtext+0avgdata 12976maxresident)k
+0inputs+0outputs (0major+871minor)pagefaults 0swaps
+OK
+TEST UNDO   :
+120.31user 0.11system 2:00.44elapsed 99%CPU (0avgtext+0avgdata 12904maxresident)k
+0inputs+0outputs (0major+380minor)pagefaults 0swaps
+OK
+TEST GETOUT :
+3.18user 0.04system 0:03.23elapsed 99%CPU (0avgtext+0avgdata 12716maxresident)k
+0inputs+0outputs (0major+846minor)pagefaults 0swaps
+OK
+TEST VALUE  :
+3.28user 0.04system 0:03.32elapsed 99%CPU (0avgtext+0avgdata 12556maxresident)k
+0inputs+0outputs (0major+841minor)pagefaults 0swaps
+OK
+TEST HASH   :
+10.72user 0.76system 0:11.48elapsed 99%CPU (0avgtext+0avgdata 3769980maxresident)k
+0inputs+0outputs (0major+939646minor)pagefaults 0swaps
+OK
 ```
 

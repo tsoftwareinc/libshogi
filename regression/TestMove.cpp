@@ -221,12 +221,12 @@ static void aroundLibshogi (const Position &p)
             if (te[i].promote == 0 && (m & Move::Promote)     ) {
                 continue;
             }
-            if ((te[i].promote)    && (m & Move::Promote) == 0) {
+            if (te[i].promote      && (m & Move::Promote) == 0) {
                 continue;
             }
             if (te[i].from == 0) {
                 int pk = toPiece[(te[i].koma & 0xf)];
-                if (pk == Move::from(m) && te[i].to == to) {
+                if (pk == Move::from(m) && te[i].to == to && (m & Move::Drop)) {
                     check = true;
                     break;
                 }
