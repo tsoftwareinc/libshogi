@@ -1286,8 +1286,8 @@ int main (int argc, char *argv[])
         Array<Move::Move, Move::Max> move;
         p.genMove(move);
         // タイマースレッド起動
-        //threadTimer timer;
-        //timer.run(ThinkingTime);
+        threadTimer timer;
+        timer.run(ThinkingTime);
         // 解析
         size_t best;
         if (move.vsize() > 1) {
@@ -1300,8 +1300,8 @@ int main (int argc, char *argv[])
             best = 0;
         }
         // タイマースレッド終了
-        //timer.stop();
-        //timer.sync();
+        timer.stop();
+        timer.sync();
         // 結果表示
         std::cout << p.string(move[best]) << std::endl
                   << p                    << std::endl;
