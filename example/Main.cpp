@@ -63,10 +63,10 @@ static const time_t         ThinkingTime    = 10;
 /* --------------------------- global  variables --------------------------- */
 
 /// 最大の探索深さ
-static thread_local int     _searchDepth    = 10;
+static int                  _searchDepth    = 10;
 
 /// 静止探索に入る探索深さ
-static thread_local int     _stableDepth    = 3;
+static int                  _stableDepth    = 3;
 
 /// 探索終了通知用セマフォ       (Thread -> Main  )
 template <typename T, typename V>
