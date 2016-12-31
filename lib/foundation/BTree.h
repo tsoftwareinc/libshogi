@@ -93,14 +93,14 @@ class BTreeNode {
 
 public:
 
+    /// default constructor
+    BTreeNode ();
+
     /// constructor
     BTreeNode (const T &v) :
-      _value(v), _left(0), _right(0) {}
+      _value(v), _left(nullptr), _right(nullptr) {}
 
 private:
-
-    /// void default constructor
-    BTreeNode ();
 
     /// void copy constructor
     BTreeNode (const BTreeNode<T> &);
@@ -119,6 +119,14 @@ private:
 
 };
 
+/// An example constructor using Zobrist hash key.
+#if 0
+template <>
+BTreeNode <Zobrist::key> ::BTreeNode () :
+      _value(0x8000000000000000ULL), _left(nullptr), _right(nullptr)
+    {}
+#endif
+
 /* ------------------------------------------------------------------------- */
 
 
@@ -128,6 +136,9 @@ template <typename T>
 class BTree {
 
 public:
+
+    /// void default constructor
+    BTree  ();
 
     /// constructor
     BTree  (const T &);
@@ -146,9 +157,6 @@ public:
 
 private:
 
-    /// void default constructor
-    BTree  ();
-
     /// void copy constructor
     BTree  (const BTree<T> &);
 
@@ -165,6 +173,21 @@ private:
     unsigned long           _height;
 
 };
+
+
+
+/**
+ * Constructor
+ * @param value value for the top node of the tree
+ */
+template <typename T>
+BTree<T>::BTree ()
+ : _size(1), _height(1)
+{
+
+    _top = new BTreeNode<T>();
+
+}
 
 
 
@@ -221,7 +244,7 @@ bool BTree<T>::add (const T &value)
 
         // follow children
         if (value <  node->_value) {
-            if (node->_left  == 0) {
+            if (node->_left  == nullptr) {
                 node->_left   = new BTreeNode<T>(value);
                 break;
             } else {
@@ -229,7 +252,7 @@ bool BTree<T>::add (const T &value)
                 continue;
             }
         } else {
-            if (node->_right == 0) {
+            if (node->_right == nullptr) {
                 node->_right  = new BTreeNode<T>(value);
                 break;
             } else {
@@ -278,14 +301,14 @@ bool BTree<T>::find (const T &value)
 
         // follow children
         if (value <  node->_value) {
-            if (node->_left  == 0) {
+            if (node->_left  == nullptr) {
                 break;
             } else {
                 node = node->_left;
                 continue;
             }
         } else {
-            if (node->_right == 0) {
+            if (node->_right == nullptr) {
                 break;
             } else {
                 node = node->_right;
@@ -316,7 +339,7 @@ void BTree<T>::clean (void)
     while (1) {
 
         // check if the node is leaf
-        if (node->_right == 0 && node->_left == 0) {
+        if (node->_right == nullptr && node->_left == nullptr) {
             // check dig end
             if (node == _top) {
                 break;
@@ -331,12 +354,12 @@ void BTree<T>::clean (void)
         BTreeNode<T> * prnt = node;
 
         // follow the right hand child first
-        if (node->_right != 0) {
+        if (node->_right != nullptr) {
             node          = prnt->_right;
-            prnt->_right  = 0;
+            prnt->_right  = nullptr;
         } else {
             node          = prnt->_left;
-            prnt->_left   = 0;
+            prnt->_left   = nullptr;
         }
 
         // save the constext

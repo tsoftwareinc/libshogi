@@ -454,8 +454,14 @@ Position::Position (const CSASummary &g)
     }
 
     // square of OU
-    _kingSB = _bbord[Piece::BOU].lsb();
-    _kingSW = _bbord[Piece::WOU].lsb();
+    _kingSB = Square::SQVD;
+    _kingSW = Square::SQVD;
+    if (_bbord[Piece::BOU]) {
+        _kingSB = _bbord[Piece::BOU].lsb();
+    }
+    if (_bbord[Piece::WOU]) {
+        _kingSW = _bbord[Piece::WOU].lsb();
+    }
 
     // turn
     if (g.firstPlayer == "+") {
@@ -872,8 +878,12 @@ Move::Move Position::move (const Move::Move &m)
     ++_numMoves;
 
     // square of OU
-    _kingSB            = _bbord[Piece::BOU].lsb();
-    _kingSW            = _bbord[Piece::WOU].lsb();
+    if (_bbord[Piece::BOU]) {
+        _kingSB = _bbord[Piece::BOU].lsb();
+    }
+    if (_bbord[Piece::WOU]) {
+        _kingSW = _bbord[Piece::WOU].lsb();
+    }
 
     // make check
     makeCheck();
@@ -953,8 +963,12 @@ void Position::undo (const Move::Move &m)
     --_numMoves;
 
     // square of OU
-    _kingSB            = _bbord[Piece::BOU].lsb();
-    _kingSW            = _bbord[Piece::WOU].lsb();
+    if (_bbord[Piece::BOU]) {
+        _kingSB = _bbord[Piece::BOU].lsb();
+    }
+    if (_bbord[Piece::WOU]) {
+        _kingSW = _bbord[Piece::WOU].lsb();
+    }
 
     // make check
     makeCheck();
@@ -6075,6 +6089,11 @@ void Position::_makePinB (void)
     // clear
     _pinnd     = Bitboard::Fill;
 
+    // if BOU doesn't exist, do nothing here
+    if (_kingSB == Square::SQVD) {
+        return;
+    }
+
     // square of guarding OU
     auto guard = _kingSB;
 
@@ -6135,6 +6154,11 @@ void Position::_makePinW (void)
     // clear
     _pinnd     = Bitboard::Fill;
 
+    // if WOU doesn't exist, do nothing here
+    if (_kingSW == Square::SQVD) {
+        return;
+    }
+
     // square of guarding OU
     auto guard = _kingSW;
 
@@ -6191,10 +6215,15 @@ void Position::_makePinW (void)
 void Position::_makeCheckB (void)
 {
 
-    Bitboard                check;
-
-    // clear
+    // clear number of checks
     _nchek        = 0;
+
+    // if BOU doesn't exist, do nothing here
+    if (_kingSB == Square::SQVD) {
+        return;
+    }
+
+    // clear the bitboard of checking condition
     _chckp        = Bitboard::Zero;
     _chkAD        = Bitboard::Zero;
     _chkKY        = Bitboard::Zero;
@@ -6225,6 +6254,9 @@ void Position::_makeCheckB (void)
     auto ahi = Piece::WHI;
     auto aum = Piece::WUM;
     auto ary = Piece::WRY;
+
+    // general purpose variable of bitboard
+    Bitboard check;
 
     // check by KA and UM
     // put KA at the square of OU and check if it effects KA or UM on the board
@@ -6273,10 +6305,15 @@ void Position::_makeCheckB (void)
 void Position::_makeCheckW (void)
 {
 
-    Bitboard                check;
-
-    // clear
+    // clear number of checks
     _nchek        = 0;
+
+    // if WOU doesn't exist, do nothing here
+    if (_kingSW == Square::SQVD) {
+        return;
+    }
+
+    // clear the bitboard of checking condition
     _chckp        = Bitboard::Zero;
     _chkAD        = Bitboard::Zero;
     _chkKY        = Bitboard::Zero;
@@ -6307,6 +6344,9 @@ void Position::_makeCheckW (void)
     auto ahi = Piece::BHI;
     auto aum = Piece::BUM;
     auto ary = Piece::BRY;
+
+    // general purpose variable of bitboard
+    Bitboard check;
 
     // check by KA and UM
     // put KA at the square of OU and check if it effects KA or UM on the board

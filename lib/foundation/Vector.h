@@ -89,7 +89,7 @@ public:
 
     /// Constructor
     Vector ()
-        : _reserve(0), _values(0), _ptr(0) {}
+        : _reserve(0), _values(0), _ptr(nullptr) {}
 
     /// Constructor with size 
     Vector (size_t);

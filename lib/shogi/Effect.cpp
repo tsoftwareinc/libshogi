@@ -952,7 +952,7 @@ static void _initHIEffect (void)
 
         for (int i = 0; i < num; ++i) {
             Bitboard occupied = _indexToOccupied(i, bits, mask[sq]);
-            size_t idx           = index + occupied.index(mask[sq]);
+            size_t idx        = index + occupied.index(mask[sq]);
             effect[idx]       = _HIEffectCalc(sq, occupied);
         }
 

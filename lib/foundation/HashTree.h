@@ -92,20 +92,22 @@ class HashNode {
     friend class HashTree<T,V>;
 
 public:
+
     /// default constructor
     HashNode ();
 
     /// constructor
     HashNode (const T &k) :
-      _key(k), _value(), _left(0), _right(0)
+      _key(k), _value(), _left(nullptr), _right(nullptr)
     {}
 
     /// constructor
     HashNode (const T &k, const V &v) :
-      _key(k), _value(v), _left(0), _right(0)
+      _key(k), _value(v), _left(nullptr), _right(nullptr)
     {}
 
 private:
+
     /// void copy constructor
     HashNode (const HashNode<T,V> &);
 
@@ -131,7 +133,7 @@ private:
 #if 0
 template <>
 HashNode <Zobrist::key, Position> ::HashNode () :
-      _key(0x8000000000000000ULL), _value(), _left(0), _right(0)
+      _key(0x8000000000000000ULL), _value(), _left(nullptr), _right(nullptr)
     {}
 #endif
 
@@ -145,6 +147,7 @@ template <typename T, typename V>
 class HashTree {
 
 public:
+
     /// default constructor
     HashTree ();
 
@@ -182,6 +185,7 @@ public:
     unsigned long           size  (void);
 
 private:
+
     /// void copy constructor
     HashTree (const HashTree<T,V> &);
 
@@ -287,7 +291,7 @@ bool HashTree<T,V>::add (const T &key)
 
         // follow children
         if (key <  node->_key) {
-            if (node->_left  == 0) {
+            if (node->_left  == nullptr) {
                 node->_left   = new HashNode<T,V>(key);
                 break;
             } else {
@@ -295,7 +299,7 @@ bool HashTree<T,V>::add (const T &key)
                 continue;
             }
         } else {
-            if (node->_right == 0) {
+            if (node->_right == nullptr) {
                 node->_right  = new HashNode<T,V>(key);
                 break;
             } else {
@@ -345,7 +349,7 @@ bool HashTree<T,V>::add (const T &key, const V &value)
 
         // follow children
         if (key < node->_key) {
-            if (node->_left  == 0) {
+            if (node->_left  == nullptr) {
                 node->_left   = new HashNode<T,V>(key, value);
                 break;
             } else {
@@ -353,7 +357,7 @@ bool HashTree<T,V>::add (const T &key, const V &value)
                 continue;
             }
         } else {
-            if (node->_right == 0) {
+            if (node->_right == nullptr) {
                 node->_right  = new HashNode<T,V>(key, value);
                 break;
             } else {
@@ -401,14 +405,14 @@ bool HashTree<T,V>::set (const T &key, const V &value)
 
         // follow children
         if (key <  node->_key) {
-            if (node->_left  == 0) {
+            if (node->_left  == nullptr) {
                 break;
             } else {
                 node = node->_left;
                 continue;
             }
         } else {
-            if (node->_right == 0) {
+            if (node->_right == nullptr) {
                 break;
             } else {
                 node = node->_right;
@@ -445,14 +449,14 @@ bool HashTree<T,V>::find (const T &key, V &var)
 
         // follow children
         if (key <  node->_key) {
-            if (node->_left  == 0) {
+            if (node->_left  == nullptr) {
                 break;
             } else {
                 node = node->_left;
                 continue;
             }
         } else {
-            if (node->_right == 0) {
+            if (node->_right == nullptr) {
                 break;
             } else {
                 node = node->_right;
@@ -487,14 +491,14 @@ bool HashTree<T,V>::find (const T &key)
 
         // follow children
         if (key <  node->_key) {
-            if (node->_left  == 0) {
+            if (node->_left  == nullptr) {
                 break;
             } else {
                 node = node->_left;
                 continue;
             }
         } else {
-            if (node->_right == 0) {
+            if (node->_right == nullptr) {
                 break;
             } else {
                 node = node->_right;
@@ -524,7 +528,7 @@ void HashTree<T,V>::clean (void)
     while (1) {
 
         // check if the node is leaf
-        if (node->_right == 0 && node->_left == 0) {
+        if (node->_right == nullptr && node->_left == nullptr) {
             // check dig end
             if (node == _top) {
                 break;
@@ -539,12 +543,12 @@ void HashTree<T,V>::clean (void)
         HashNode<T,V> *prnt = node;
 
         // follow the right hand child first
-        if (node->_right != 0) {
+        if (node->_right != nullptr) {
             node          = prnt->_right;
-            prnt->_right  = 0;
+            prnt->_right  = nullptr;
         } else {
             node          = prnt->_left;
-            prnt->_left   = 0;
+            prnt->_left   = nullptr;
         }
 
         // save the constext

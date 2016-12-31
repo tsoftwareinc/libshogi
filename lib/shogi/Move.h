@@ -75,6 +75,7 @@ namespace game { namespace Move {
 static const int            PromotionShift = 15;
 static const int            ValueShift     = 16;
 static const int            ValueMask      = 0xffff0000;
+static const int            ValueOffset    = 0x8000;
 
 enum Move : uint32_t {
 
@@ -175,7 +176,36 @@ inline Move drop (Piece::Piece p, Square::Square to)
 inline Move setValue (int v, const Move &m)
 {
 
-    v += (v < 0 ? 0x10000 : 0);
+    v += ValueOffset;
+    return static_cast<Move>((m & (~ValueMask)) | (v << ValueShift));
+
+}
+
+
+
+/**
+ * Set positive value to the move
+ * @param v value to set
+ * @return move with vaue
+ */
+inline Move setPValue (int v, const Move &m)
+{
+
+    return static_cast<Move>((m & (~ValueMask)) | (v << ValueShift));
+
+}
+
+
+
+/**
+ * Set negative value to the move
+ * @param v value to set
+ * @return move with vaue
+ */
+inline Move setNValue (int v, const Move &m)
+{
+
+    v = -v;
     return static_cast<Move>((m & (~ValueMask)) | (v << ValueShift));
 
 }
@@ -190,7 +220,35 @@ inline int value (const Move &m)
 {
 
     int v = ((m & ValueMask) >> ValueShift);
-    return (v - ((v & 0x8000) ? 0x10000 : 0));
+    return (v - ValueOffset);
+
+}
+
+
+
+/**
+ * Positive value of the move
+ * @return  value of the move
+ */
+inline int pvalue (const Move &m)
+{
+
+    int v = ((m & ValueMask) >> ValueShift);
+    return v;
+
+}
+
+
+
+/**
+ * Negative value of the move
+ * @return  value of the move
+ */
+inline int nvalue (const Move &m)
+{
+
+    int v = ((m & ValueMask) >> ValueShift);
+    return -v;
 
 }
 

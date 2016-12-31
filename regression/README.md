@@ -52,51 +52,51 @@
 
 ```
 TEST CHECK  :
-2.56user 0.06system 0:02.63elapsed 99%CPU (0avgtext+0avgdata 12776maxresident)k
-0inputs+0outputs (0major+850minor)pagefaults 0swaps
+3.68user 1.01system 3:16.43elapsed 2%CPU (0avgtext+0avgdata 12720maxresident)k
+300736inputs+0outputs (0major+845minor)pagefaults 0swaps
 OK
 TEST MOVE   :
-72.47user 0.15system 1:12.64elapsed 99%CPU (0avgtext+0avgdata 12836maxresident)k
-0inputs+0outputs (0major+861minor)pagefaults 0swaps
+73.60user 0.15system 1:13.76elapsed 99%CPU (0avgtext+0avgdata 13232maxresident)k
+0inputs+0outputs (0major+421minor)pagefaults 0swaps
 OK
 TEST EFFECT :
-6.48user 0.06system 0:06.55elapsed 99%CPU (0avgtext+0avgdata 13132maxresident)k
-0inputs+0outputs (0major+415minor)pagefaults 0swaps
+6.72user 0.04system 0:06.77elapsed 99%CPU (0avgtext+0avgdata 12908maxresident)k
+0inputs+0outputs (0major+876minor)pagefaults 0swaps
 OK
 TEST PIN    :
-3.51user 0.10system 0:03.61elapsed 99%CPU (0avgtext+0avgdata 13012maxresident)k
-0inputs+0outputs (0major+396minor)pagefaults 0swaps
+3.36user 0.07system 0:03.43elapsed 99%CPU (0avgtext+0avgdata 12836maxresident)k
+0inputs+0outputs (0major+861minor)pagefaults 0swaps
 OK
 TEST FAST   :
-66.75user 0.09system 1:06.85elapsed 99%CPU (0avgtext+0avgdata 12832maxresident)k
-0inputs+0outputs (0major+380minor)pagefaults 0swaps
+69.04user 0.14system 1:09.23elapsed 99%CPU (0avgtext+0avgdata 12740maxresident)k
+0inputs+0outputs (0major+863minor)pagefaults 0swaps
 OK
 TEST CAPT   :
-18.80user 0.10system 0:18.91elapsed 99%CPU (0avgtext+0avgdata 12960maxresident)k
-0inputs+0outputs (0major+406minor)pagefaults 0swaps
+19.14user 0.09system 0:19.24elapsed 99%CPU (0avgtext+0avgdata 12836maxresident)k
+0inputs+0outputs (0major+862minor)pagefaults 0swaps
 OK
 TEST OUTE   :
-74.50user 0.09system 1:14.60elapsed 99%CPU (0avgtext+0avgdata 13052maxresident)k
-0inputs+0outputs (0major+419minor)pagefaults 0swaps
+76.92user 0.13system 1:17.06elapsed 99%CPU (0avgtext+0avgdata 12808maxresident)k
+0inputs+0outputs (0major+864minor)pagefaults 0swaps
 OK
 TEST OFST   :
-77.43user 0.14system 1:17.59elapsed 99%CPU (0avgtext+0avgdata 12976maxresident)k
-0inputs+0outputs (0major+871minor)pagefaults 0swaps
+80.98user 0.16system 1:21.16elapsed 99%CPU (0avgtext+0avgdata 12728maxresident)k
+0inputs+0outputs (0major+862minor)pagefaults 0swaps
 OK
 TEST UNDO   :
-120.31user 0.11system 2:00.44elapsed 99%CPU (0avgtext+0avgdata 12904maxresident)k
-0inputs+0outputs (0major+380minor)pagefaults 0swaps
+117.66user 0.16system 1:57.87elapsed 99%CPU (0avgtext+0avgdata 12916maxresident)k
+0inputs+0outputs (0major+383minor)pagefaults 0swaps
 OK
 TEST GETOUT :
-3.18user 0.04system 0:03.23elapsed 99%CPU (0avgtext+0avgdata 12716maxresident)k
-0inputs+0outputs (0major+846minor)pagefaults 0swaps
+3.38user 0.07system 0:03.45elapsed 99%CPU (0avgtext+0avgdata 12924maxresident)k
+0inputs+0outputs (0major+379minor)pagefaults 0swaps
 OK
 TEST VALUE  :
-3.28user 0.04system 0:03.32elapsed 99%CPU (0avgtext+0avgdata 12556maxresident)k
-0inputs+0outputs (0major+841minor)pagefaults 0swaps
+3.29user 0.06system 0:03.36elapsed 99%CPU (0avgtext+0avgdata 13256maxresident)k
+0inputs+0outputs (0major+433minor)pagefaults 0swaps
 OK
 TEST HASH   :
-10.72user 0.76system 0:11.48elapsed 99%CPU (0avgtext+0avgdata 3769980maxresident)k
+11.18user 0.80system 0:12.01elapsed 99%CPU (0avgtext+0avgdata 3769936maxresident)k
 0inputs+0outputs (0major+939646minor)pagefaults 0swaps
 OK
 ```

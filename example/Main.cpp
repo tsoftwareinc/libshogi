@@ -1263,7 +1263,9 @@ int main (int argc, char *argv[])
         debug = true;
     } else
     if (argc != 4) {
-        std::cerr << "%s <ユーザ名> <パスワード> <サーバ>" << std::endl;
+        std::cerr << "Usage : "                                       << std::endl
+                  << argv[0] << "<User Name> <Password> <CSA Server>" << std::endl
+                  << argv[0] << "<User Name> <CSA File>"              << std::endl;
         exit(EXIT_FAILURE);
     }
 
@@ -1316,15 +1318,19 @@ int main (int argc, char *argv[])
     // CSA サーバへログイン
     csa.login(argv[1], argv[2]);
 
-    // 手合い待ち
+    // 対局待ち
     CSASummary summary = csa.newGame();
+
+    // 対局受諾
     if (! csa.accept()) {
         std::cerr << "拒否されました" << std::endl;
         exit(EXIT_FAILURE);
     }
 
-    // サーバからの情報を元に局面を作成
+    // 局面のインスタンスを作成
     Position p(summary);
+
+    // メッセージ受信用
     std::cout << p << std::endl;
 
     // プログラムの手番を確認
