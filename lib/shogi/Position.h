@@ -175,6 +175,13 @@ public:
     /// Make a move (CSA protocol)
     Move::Move                  move       (const CSAMove    &);
 
+    /// Last move
+    Move::Move                  lastMove   (void)           const;
+
+    /// Uchifuzume check
+    bool                        uchifuzume (void)           const;
+
+
     /// Check if OU will be captured
     bool                        dusty      (const Move::Move &) const;
     bool                        dustyB     (const Move::Move &) const;
@@ -355,6 +362,8 @@ protected:
     /// Effect
     _POSISION_CONTEXTCACHE Bitboard _effect;
 
+    /// Last move
+    _POSISION_CONTEXTCACHE Move::Move _lastmove;
 
 
     ///

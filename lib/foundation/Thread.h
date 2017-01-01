@@ -73,7 +73,7 @@ namespace foundation {
 
 
 
-/* ---------------------------- tree exceptions ---------------------------- */
+/* -------------------------- thread exceptions ---------------------------- */
 
 class ThreadException {};
 

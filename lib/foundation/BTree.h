@@ -147,13 +147,16 @@ public:
     ~BTree ();
 
     /// add new node
-    bool                    add   (const T &);
+    bool                    add    (const T &);
 
     /// find the value
-    bool                    find  (const T &);
+    bool                    find   (const T &);
+
+    /// find the value
+    unsigned long           height (void) { return _height; }
 
     /// clean up the tree
-    void                    clean (void);
+    void                    clean  (void);
 
 private:
 

@@ -289,6 +289,9 @@ thread_local Array<Move::Move, Position::MinorMoves> Position::_m;
 
 // Effect cache flag
 thread_local Bitboard       Position::_effect;
+
+// Effect cache flag
+thread_local Move::Move     Position::_lastmove;
 #endif
 
 /* ------------------------------------------------------------------------- */
@@ -810,12 +813,15 @@ void Position::remove (const Move::Move &m)
 
 
 /**
- * Perform a move, assuming the given move is always legal 
+ * Make a move, assuming the given move is always legal 
  * @param m move to perform
  * @return the performed move
  */
 Move::Move Position::move (const Move::Move &m)
 {
+
+    // save the move
+    _lastmove = m;
 
     // dropping move
     if (m & Move::Drop) {
@@ -977,9 +983,8 @@ void Position::undo (const Move::Move &m)
 
 
 
-
 /**
- * Perform a move (CSA protocol)
+ * Make a move (CSA protocol)
  * @param m move to perform
  * @return the perfomed move
  */
@@ -1008,6 +1013,32 @@ Move::Move Position::move (const CSAMove &mv)
     }
 
     return move(Move::move(fm, to));
+
+}
+
+
+
+/**
+ * Last move
+ * @return the last move
+ */
+Move::Move Position::lastMove (void) const
+{
+
+    return _lastmove;
+
+}
+
+
+
+/**
+ * Uchifuzume check
+ * @return true if the last move is drroping FU, false not
+ */
+bool Position::uchifuzume (void) const
+{
+
+    return ((_lastmove & (~0x7f)) == (Move::Drop | (Piece::FU << 7)));
 
 }
 
