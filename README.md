@@ -31,7 +31,7 @@
 ```
 
 
-## RECEIPE
+## RECIPE
 
    libshogi/Makefile has several options. 
 
