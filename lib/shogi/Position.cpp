@@ -1038,7 +1038,7 @@ Move::Move Position::lastMove (void) const
 bool Position::uchifuzume (void) const
 {
 
-    return ((_lastmove & (~0x7f)) == (Move::Drop | (Piece::FU << 7)));
+    return ((_lastmove & 0xff80) == (Move::Drop | (Piece::FU << 7)));
 
 }
 
