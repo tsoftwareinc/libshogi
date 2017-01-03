@@ -966,22 +966,6 @@ Bitboard & Bitboard::operator^= (const Bitboard &rhs)
 
 
 /**
- * Addition and assign (divided addition)
- * @param rhs value operated with
- * @return result
- */
-Bitboard & Bitboard::operator+= (const Bitboard &rhs)
-{
-
-    p[0] += rhs.p[0];
-    p[1] += rhs.p[1];
-    return *this;
-
-}
-
-
-
-/**
  * Shift left and assign
  * @param shift number of bits to be shifted
  * @return result
@@ -1048,20 +1032,6 @@ Bitboard Bitboard::operator^ (const Bitboard &rhs) const
 {
 
     return (Bitboard(*this) ^= rhs);
-
-}
-
-
-
-/**
- * Addition
- * @param rhs value operated with
- * @return result
- */
-Bitboard Bitboard::operator+ (const Bitboard &rhs) const
-{
-
-    return (Bitboard(*this) += rhs);
 
 }
 
