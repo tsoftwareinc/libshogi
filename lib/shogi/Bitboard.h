@@ -197,6 +197,8 @@ public:
     Bitboard &              operator&=  (const Bitboard &);
     Bitboard &              operator|=  (const Bitboard &);
     Bitboard &              operator^=  (const Bitboard &);
+    Bitboard &              operator+=  (const Bitboard &);
+    Bitboard &              operator-=  (const Bitboard &);
     Bitboard &              operator>>= (int);
     Bitboard &              operator<<= (int);
 
@@ -204,6 +206,7 @@ public:
     Bitboard                operator&   (const Bitboard &) const;
     Bitboard                operator|   (const Bitboard &) const;
     Bitboard                operator^   (const Bitboard &) const;
+    Bitboard                operator+   (const Bitboard &) const;
     Bitboard                operator>>  (int)              const;
     Bitboard                operator<<  (int)              const;
 
