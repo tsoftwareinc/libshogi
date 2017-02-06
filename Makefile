@@ -3,7 +3,7 @@ TARGET  = /usr/local
 HEADDIR = $(TARGET)/include/shogi/
 LIBRDIR = $(TARGET)/lib64
 LIBNAME = libshogi.so.0
-BMI2    = y
+BMI2    = n
 TLS     = n
 
 HEADERS = lib/shogi/Bitboard.h lib/shogi/Color.h lib/shogi/Convert.h \

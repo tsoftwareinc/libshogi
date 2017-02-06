@@ -1247,7 +1247,7 @@ static Eval quiesMin (Position &p, Eval alpha, Eval beta, int depth)
 
 /**
  * Main function
- * @param argc number of command option when invoked
+ * @param argc number of command options when invoked
  * @param argv strings of comannd options in array
  * @return status code reflecting normal end or error end.
  */
