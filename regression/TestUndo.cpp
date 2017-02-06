@@ -12,13 +12,9 @@ using namespace foundation;
 using namespace game;
 using namespace Square;
 
-/* ------------------------------- parameters ------------------------------ */
+/* ------------------------------ parameters ------------------------------- */
 
-/* ------------------------------------------------------------------------- */
-
-
-
-/* --------------------------- global  variables --------------------------- */
+static const int            MaxMoves = 1000;
 
 /* ------------------------------------------------------------------------- */
 
@@ -50,6 +46,9 @@ int main (int argc, char *argv[])
     while (! (std::getline(ifs, l)).eof()) {
         CSAFile f(l);
         MyPosition p(f.summary());
+        Array<Move::Move,   MaxMoves> seq;
+        Array<Zobrist::key, MaxMoves> key;
+        int index = 0;
         for (auto m : f) {
             MyPosition _p(p);
             Array<Move::Move, Move::Max> move;
@@ -61,7 +60,7 @@ int main (int argc, char *argv[])
                 if (p.hash() != _p.hash()) {
                     _p.show(_m);
                     std::cout << std::endl
-                              << "Hash mismatch"
+                              << "Hash Error."
                               << std::endl
                               <<  p << std::endl
                               << _p << std::endl;
@@ -75,7 +74,18 @@ int main (int argc, char *argv[])
                 }
             }
             //
-            p.move(m);
+            key[index] = p.hash();
+            seq[index] = p.move(m);
+            ++index;
+        }
+        for (int i = index - 1; i >= 0; --i) {
+            p.undo(seq[i]);
+            if (p.hash() != key[i]) {
+                std::cout << "Seuence Error."
+                          << std::endl
+                          << p << std::endl;
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
