@@ -72,6 +72,7 @@ namespace game { namespace Move {
  *
  */
 
+static const int            MoveMask       = 0x0000ffff;
 static const int            PromotionShift = 15;
 static const int            ValueShift     = 16;
 static const int            ValueMask      = 0xffff0000;
@@ -93,6 +94,21 @@ enum Move : uint32_t {
 
 /// Number of move at most
 static const int            Max = 593;
+
+
+
+/**
+ * Check if the move is null
+ * @param m move value
+ * @return true if the move is null
+ */
+inline bool isNull (Move m)
+{
+
+    return ((m & MoveMask) == None);
+
+}
+
 
 
 /**
