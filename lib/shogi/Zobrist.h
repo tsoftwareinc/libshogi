@@ -12,7 +12,7 @@
  @version    $Id:$
 
 
-  Copyright 2014, 2015, 2016 Hiroki Takada
+  Copyright 2014, 2015, 2016, 2017, 2017 Hiroki Takada
 
   This file is part of libshogi.
 
@@ -56,16 +56,15 @@ namespace game { namespace Zobrist {
  * instead of XOR. This trick efficiently reduces the cost of hasing for hand
  * pieces. libshogi is using XOR for pieces on the board and ADD for those
  * in the hand.
- * 
  */
 
 /// Type of data being used for hasing key 
 using key = uint64_t;
 
-/// Bitboard with a filled particular row
+/// Tables for random numbers to hash pieces on the board
 extern key                  position[Square::Squares][Piece::Pieces];
 
-/// Bitboard with a filled particular column
+/// Tables for random numbers to hash pieces in the hand
 extern key                  hands[Color::Colors][Piece::Variety];
 
 /// Initialize

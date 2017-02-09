@@ -12,7 +12,7 @@
  @version    $Id:$
 
 
-  Copyright 2014, 2015, 2016 Hiroki Takada
+  Copyright 2014, 2015, 2016, 2017 Hiroki Takada
 
   This file is part of libshogi.
 
