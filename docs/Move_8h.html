@@ -88,6 +88,8 @@ Enumerations</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
 Functions</h2></td></tr>
+<tr class="memitem:a477e63cfcfd774f3525f239d498e26ad"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#a477e63cfcfd774f3525f239d498e26ad">game::Move::isNull</a> (Move m)</td></tr>
+<tr class="separator:a477e63cfcfd774f3525f239d498e26ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a653d408bf1b24bff17aa0a292e0af2f8"><td class="memItemLeft" align="right" valign="top">Square::Square&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#a653d408bf1b24bff17aa0a292e0af2f8">game::Move::from</a> (Move m)</td></tr>
 <tr class="separator:a653d408bf1b24bff17aa0a292e0af2f8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af09db1621675c040b0d1d9f42d41c24c"><td class="memItemLeft" align="right" valign="top">Square::Square&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#af09db1621675c040b0d1d9f42d41c24c">game::Move::to</a> (Move m)</td></tr>
@@ -100,15 +102,23 @@ Functions</h2></td></tr>
 <tr class="separator:aef6867a03301d7e23a4e2d1bd9adbbc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a941b10158bf306792feb26647097e806"><td class="memItemLeft" align="right" valign="top">Move&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#a941b10158bf306792feb26647097e806">game::Move::setValue</a> (int v, const Move &amp;m)</td></tr>
 <tr class="separator:a941b10158bf306792feb26647097e806"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a58408d21a710552d15aad5515a4d1f56"><td class="memItemLeft" align="right" valign="top">Move&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#a58408d21a710552d15aad5515a4d1f56">game::Move::setPValue</a> (int v, const Move &amp;m)</td></tr>
+<tr class="separator:a58408d21a710552d15aad5515a4d1f56"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1a34f4394616c191e9d18ba672561abf"><td class="memItemLeft" align="right" valign="top">Move&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#a1a34f4394616c191e9d18ba672561abf">game::Move::setNValue</a> (int v, const Move &amp;m)</td></tr>
+<tr class="separator:a1a34f4394616c191e9d18ba672561abf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aaa2e6bbfb0da0a38eda6db60e87b2555"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#aaa2e6bbfb0da0a38eda6db60e87b2555">game::Move::value</a> (const Move &amp;m)</td></tr>
 <tr class="separator:aaa2e6bbfb0da0a38eda6db60e87b2555"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a84a11aafab731ee60e5680a865010499"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#a84a11aafab731ee60e5680a865010499">game::Move::pvalue</a> (const Move &amp;m)</td></tr>
+<tr class="separator:a84a11aafab731ee60e5680a865010499"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a2d101116e234fd905d0ae7b15a0235cc"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="Move_8h.html#a2d101116e234fd905d0ae7b15a0235cc">game::Move::nvalue</a> (const Move &amp;m)</td></tr>
+<tr class="separator:a2d101116e234fd905d0ae7b15a0235cc"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Definition of the move. </p>
 <dl class="section author"><dt>Author</dt><dd>Hiroki Takada (<a href="http://wwww.tsoftware.jp/">http://wwww.tsoftware.jp/</a>)</dd></dl>
 <dl class="section date"><dt>Date</dt><dd>2016-03-31</dd></dl>
 <dl class="section version"><dt>Version</dt><dd>$Id:$</dd></dl>
-<p>Copyright 2014, 2015, 2016 Hiroki Takada</p>
+<p>Copyright 2014, 2015, 2016, 2017 Hiroki Takada</p>
 <p>This file is part of libshogi.</p>
 <p>libshogi is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
 <p>libshogi is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.</p>
@@ -217,6 +227,39 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="file_a477e63cfcfd774f3525f239d498e26ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a477e63cfcfd774f3525f239d498e26ad">&sect;&nbsp;</a></span>isNull()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool game::Move::isNull </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="Move_8h.html#aa352018c3128ee21a3601a6a80abda3e">Move</a>&#160;</td>
+          <td class="paramname"><em>m</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Check if the move is null </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">m</td><td>move value </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>true if the move is null </dd></dl>
+
+</div>
+</div>
 <a id="file_aa04256d6878418d477a828f370407999"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#file_aa04256d6878418d477a828f370407999">&sect;&nbsp;</a></span>move()</h2>
 
@@ -261,6 +304,33 @@ Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="file_a2d101116e234fd905d0ae7b15a0235cc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a2d101116e234fd905d0ae7b15a0235cc">&sect;&nbsp;</a></span>nvalue()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int game::Move::nvalue </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="Move_8h.html#aa352018c3128ee21a3601a6a80abda3e">Move</a> &amp;&#160;</td>
+          <td class="paramname"><em>m</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Negative value of the move </p><dl class="section return"><dt>Returns</dt><dd>value of the move </dd></dl>
+
+</div>
+</div>
 <a id="file_a79d6fd264f3eb83aa9bce07e69679aeb"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#file_a79d6fd264f3eb83aa9bce07e69679aeb">&sect;&nbsp;</a></span>promote()</h2>
 
@@ -302,6 +372,119 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Move </dd></dl>
+
+</div>
+</div>
+<a id="file_a84a11aafab731ee60e5680a865010499"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a84a11aafab731ee60e5680a865010499">&sect;&nbsp;</a></span>pvalue()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">int game::Move::pvalue </td>
+          <td>(</td>
+          <td class="paramtype">const <a class="el" href="Move_8h.html#aa352018c3128ee21a3601a6a80abda3e">Move</a> &amp;&#160;</td>
+          <td class="paramname"><em>m</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Positive value of the move </p><dl class="section return"><dt>Returns</dt><dd>value of the move </dd></dl>
+
+</div>
+</div>
+<a id="file_a1a34f4394616c191e9d18ba672561abf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a1a34f4394616c191e9d18ba672561abf">&sect;&nbsp;</a></span>setNValue()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">Move game::Move::setNValue </td>
+          <td>(</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>v</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="Move_8h.html#aa352018c3128ee21a3601a6a80abda3e">Move</a> &amp;&#160;</td>
+          <td class="paramname"><em>m</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Set negative value to the move </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">v</td><td>value to set </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>move with vaue </dd></dl>
+
+</div>
+</div>
+<a id="file_a58408d21a710552d15aad5515a4d1f56"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#file_a58408d21a710552d15aad5515a4d1f56">&sect;&nbsp;</a></span>setPValue()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">Move game::Move::setPValue </td>
+          <td>(</td>
+          <td class="paramtype">int&#160;</td>
+          <td class="paramname"><em>v</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const <a class="el" href="Move_8h.html#aa352018c3128ee21a3601a6a80abda3e">Move</a> &amp;&#160;</td>
+          <td class="paramname"><em>m</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Set positive value to the move </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">v</td><td>value to set </td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>move with vaue </dd></dl>
 
 </div>
 </div>

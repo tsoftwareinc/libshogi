@@ -10,7 +10,7 @@ var searchData=
   ['hashtree',['HashTree',['../classfoundation_1_1HashTree.html#a90a52f571366351748af7f5af30fec14',1,'foundation::HashTree::HashTree()'],['../classfoundation_1_1HashTree.html#a550bbd5ea3dcc3f677c4cd4311d0de60',1,'foundation::HashTree::HashTree(const T &amp;)'],['../classfoundation_1_1HashTree.html#a773996e809e066b3e7322f945254f77a',1,'foundation::HashTree::HashTree(const T &amp;, const V &amp;)']]],
   ['hashtree',['HashTree',['../classfoundation_1_1HashTree.html',1,'foundation']]],
   ['hashtree_2eh',['HashTree.h',['../HashTree_8h.html',1,'']]],
-  ['height',['height',['../classfoundation_1_1HashTree.html#aaae68d096fc4a07cb2063db4fe8fb8fb',1,'foundation::HashTree']]],
+  ['height',['height',['../classfoundation_1_1BTree.html#a5c5c6ffbc9be1ba37916538e89868f7e',1,'foundation::BTree::height()'],['../classfoundation_1_1HashTree.html#aaae68d096fc4a07cb2063db4fe8fb8fb',1,'foundation::HashTree::height()']]],
   ['hh',['HH',['../Effect_8cpp.html#a55c79a00487c3d8afc7c61b74b5e170f',1,'game::Effect']]],
   ['hi',['HI',['../Effect_8cpp.html#af389aedbf07493db3f506bd717d373e5',1,'game::Effect']]],
   ['hv',['HV',['../Effect_8cpp.html#a0d28e12ce86c94a903bdff1af55364ae',1,'game::Effect']]]

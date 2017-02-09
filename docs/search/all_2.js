@@ -13,9 +13,9 @@ var searchData=
   ['bsr',['bsr',['../BitOperations_8h.html#a7c6393934612d5e303b1d2def4be700f',1,'foundation::Bitope::bsr(uint32_t v)'],['../BitOperations_8h.html#aefbb1169135d437f74514788d4fa33b5',1,'foundation::Bitope::bsr(uint64_t v)']]],
   ['bsrr',['bsrr',['../BitOperations_8h.html#a8f9ca1e2ea9362be9a9a7c2d5c431df6',1,'foundation::Bitope']]],
   ['btree',['BTree',['../classfoundation_1_1BTree.html',1,'foundation']]],
-  ['btree',['BTree',['../classfoundation_1_1BTree.html#a716b8eac8759c1f792deae9240c1a9c3',1,'foundation::BTree']]],
+  ['btree',['BTree',['../classfoundation_1_1BTree.html#a402ef2de001a78030121236c1857fd77',1,'foundation::BTree::BTree()'],['../classfoundation_1_1BTree.html#a716b8eac8759c1f792deae9240c1a9c3',1,'foundation::BTree::BTree(const T &amp;)']]],
   ['btree_2eh',['BTree.h',['../BTree_8h.html',1,'']]],
   ['btreeexception',['BTreeException',['../classfoundation_1_1BTreeException.html',1,'foundation']]],
-  ['btreenode',['BTreeNode',['../classfoundation_1_1BTreeNode.html#a0e95f64a0b71bf517772750c7ba48e3b',1,'foundation::BTreeNode']]],
+  ['btreenode',['BTreeNode',['../classfoundation_1_1BTreeNode.html#a5aa8e6ff23630c3a5f7f213158be3760',1,'foundation::BTreeNode::BTreeNode()'],['../classfoundation_1_1BTreeNode.html#a0e95f64a0b71bf517772750c7ba48e3b',1,'foundation::BTreeNode::BTreeNode(const T &amp;v)']]],
   ['btreenode',['BTreeNode',['../classfoundation_1_1BTreeNode.html',1,'foundation']]]
 ];

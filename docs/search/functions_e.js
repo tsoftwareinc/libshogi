@@ -1,7 +1,7 @@
 var searchData=
 [
   ['oc',['OC',['../Effect_8cpp.html#a07338b6f81a8b715b3669af9019e3de6',1,'game::Effect']]],
-  ['occupied',['occupied',['../classgame_1_1Position.html#a4e8f65b61e742427bcf15cd51036c76c',1,'game::Position::occupied(void) const'],['../classgame_1_1Position.html#ac632853001e3e4718b9f654621a1b120',1,'game::Position::occupied(Color::Color) const']]],
+  ['occupied',['occupied',['../classgame_1_1Position.html#af1cdc59620eaf34ece7a92883c79f49f',1,'game::Position::occupied(void) const'],['../classgame_1_1Position.html#ac632853001e3e4718b9f654621a1b120',1,'game::Position::occupied(Color::Color) const']]],
   ['operator_20_26',['operator &amp;',['../classgame_1_1Bitboard.html#aced042c8b5beb61d4c79e6275a30dc55',1,'game::Bitboard::operator &amp;(const Bitboard &amp;) const'],['../classgame_1_1Bitboard.html#a058d94638f40bf9067df8f5662ca42f8',1,'game::Bitboard::operator &amp;(Square::Square) const'],['../Bitboard_8h.html#aff5b24094857c4f7e28463dc3ce04c8c',1,'operator &amp;(const Bitboard &amp;) const:&#160;Bitboard.h'],['../Bitboard_8h.html#a3ab806cacf99c9e6d89bb2310f013949',1,'operator &amp;(Square::Square) const:&#160;Bitboard.h']]],
   ['operator_20bool',['operator bool',['../classgame_1_1Bitboard.html#a9cf2c504b8278359d33b265b3008aa68',1,'game::Bitboard::operator bool()'],['../Bitboard_8h.html#a219a637034c39ea8284b8ed6b5212138',1,'operator bool():&#160;Bitboard.h']]],
   ['operator_20int',['operator int',['../classgame_1_1Position.html#affc2394e67329a530495b2cb9bb9ef73',1,'game::Position']]],

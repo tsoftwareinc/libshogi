@@ -8,10 +8,11 @@ var searchData=
   ['initrandomtree',['initRandomTree',['../Utility_8cpp.html#a3ca30d1056cedcb542a42cecc0e8fb15',1,'utility']]],
   ['invert',['Invert',['../classgame_1_1Bitboard.html#a1ab908ef8f562c8561d15092b62bd62d',1,'game::Bitboard']]],
   ['ishwll',['isHWll',['../Square_8h.html#a98aeec8dda8f4bb4ebf458fc1c11b9f3',1,'game::Square']]],
+  ['isnull',['isNull',['../Move_8h.html#a477e63cfcfd774f3525f239d498e26ad',1,'game::Move']]],
   ['isvwll',['isVWll',['../Square_8h.html#a4026b16d59d24d5087280692f61357da',1,'game::Square']]],
   ['iswall',['isWall',['../Region_8h.html#a5cd496fe05a3102694645bedbef42d6b',1,'game::Region::isWall()'],['../Square_8h.html#abd152cb6246384fc0a62902a0b1bedca',1,'game::Square::isWall()']]],
   ['iterator',['iterator',['../classfoundation_1_1List_1_1iterator.html',1,'foundation::List']]],
-  ['iterator',['iterator',['../classfoundation_1_1Array_1_1iterator.html',1,'foundation::Array']]],
+  ['iterator',['iterator',['../classfoundation_1_1Vector_1_1iterator.html',1,'foundation::Vector']]],
   ['iterator',['iterator',['../classfoundation_1_1List_1_1iterator.html#a59b64737525c37ab64e56a65db8c20ca',1,'foundation::List::iterator']]],
-  ['iterator',['iterator',['../classfoundation_1_1Vector_1_1iterator.html',1,'foundation::Vector']]]
+  ['iterator',['iterator',['../classfoundation_1_1Array_1_1iterator.html',1,'foundation::Array']]]
 ];

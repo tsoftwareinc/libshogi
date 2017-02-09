@@ -7,5 +7,6 @@ var searchData=
   ['popcnt',['popcnt',['../classgame_1_1Bitboard.html#ae7dfcdcb1bb7c3062545fc37725e9b63',1,'game::Bitboard::popcnt()'],['../BitOperations_8h.html#aaca6816d8658a5b55812eafe3aa1e643',1,'foundation::Bitope::popcnt()'],['../Bitboard_8h.html#aee85460bf137b07de357a40c6bd2397b',1,'popcnt():&#160;Bitboard.h']]],
   ['position',['Position',['../classgame_1_1Position.html#a5095e6362bc7d953586aec680a025db2',1,'game::Position::Position(const Position &amp;)'],['../classgame_1_1Position.html#abc8141148fdd6892d5e05272fff3a685',1,'game::Position::Position(const CSASummary &amp;)']]],
   ['post',['post',['../classfoundation_1_1Semaphore.html#a7b379d21d2637c467ebc88ad866a9369',1,'foundation::Semaphore']]],
-  ['promote',['promote',['../Move_8h.html#a79d6fd264f3eb83aa9bce07e69679aeb',1,'game::Move']]]
+  ['promote',['promote',['../Move_8h.html#a79d6fd264f3eb83aa9bce07e69679aeb',1,'game::Move']]],
+  ['pvalue',['pvalue',['../Move_8h.html#a84a11aafab731ee60e5680a865010499',1,'game::Move']]]
 ];

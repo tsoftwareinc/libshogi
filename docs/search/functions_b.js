@@ -1,5 +1,6 @@
 var searchData=
 [
+  ['lastmove',['lastMove',['../classgame_1_1Position.html#ace0275722865013619b1affe8c11b348',1,'game::Position']]],
   ['ld',['LD',['../Effect_8cpp.html#ac63b3deb4cd2c329a55221f3465b5ccf',1,'game::Effect']]],
   ['list',['List',['../classfoundation_1_1List.html#aa2b51b62306e5b1fef81c247508a1ceb',1,'foundation::List::List()'],['../classfoundation_1_1List.html#ad9e17a93cdca1511257a0a76ccfa5e78',1,'foundation::List::List(const List&lt; T &gt; &amp;)']]],
   ['listhead',['ListHead',['../classfoundation_1_1ListHead.html#a7b23f7608a5a9d291e8646216d972d29',1,'foundation::ListHead']]],
