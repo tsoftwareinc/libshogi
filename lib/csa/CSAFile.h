@@ -88,16 +88,16 @@ public:
     CSAFile (const std::string &);
 
     /// Read the CSA file
-    const CSASummary &          readGame (const std::string &);
+    const CSASummary &          readGame  (const std::string &);
 
     /// CSA game summary
-    const CSASummary &          summary  (void);
+    const CSASummary &          summary   (void);
 
     /// Sequence of the moves
     foundation::
-    List<CSAMove>::iterator begin        (void);
+    List<CSAMove>::iterator begin         (void);
     foundation::
-    List<CSAMove>::iterator end          (void);
+    List<CSAMove>::iterator end           (void);
 
 private:
 

@@ -226,8 +226,10 @@ class threadTimer : public Thread<int, time_t>
 {
 
 public:
+
     // 時計を見る間隔 [nsec]
     static const long       PollingInterval = 50000000L;
+
     // タイマースレッドの優先度 (最高)
     static const int        Priority        = -21;
 
@@ -1106,14 +1108,14 @@ static Eval quiesMax (Position &p, Eval alpha, Eval beta, int depth)
         return vmax;
     }
 
-    // 終了通知があるか
-    if (_stopSearch == 1) {
-        return beta;
-    }
-
     // 末端なので静的評価値を返す
     // searchTPB() == false の場合 vmax は更新されていない
     if (depth > _searchDepth) {
+        return vmax;
+    }
+
+    // 終了通知があるか
+    if (_stopSearch == 1) {
         return vmax;
     }
 
@@ -1187,14 +1189,14 @@ static Eval quiesMin (Position &p, Eval alpha, Eval beta, int depth)
         return vmin;
     }
 
-    // 終了通知があるか
-    if (_stopSearch == 1) {
-        return alpha;
-    }
-
     // 末端なので静的評価値を返す
     // searchTPW() == false の場合 vmin は更新されていない
     if (depth > _searchDepth) {
+        return vmin;
+    }
+
+    // 終了通知があるか
+    if (_stopSearch == 1) {
         return vmin;
     }
 

@@ -1342,6 +1342,20 @@ void Position::makeCheck (void)
 
 
 /**
+ * Number of checks
+ * The function simply returns _nchek that depends on the last move
+ * generation.
+ */
+int Position::nchecks (void)
+{
+
+    return _nchek;
+
+}
+
+
+
+/**
  * Moves for next player
  * @param m array to store moves
  *

@@ -191,6 +191,9 @@ public:
     /// Make check
     void                        makeCheck  (void);
 
+    /// Number of checks
+    int                         nchecks    (void);
+
     /// Generate moves
     void                        genMove    (foundation::Array<Move::Move, Move::Max> &);
 
