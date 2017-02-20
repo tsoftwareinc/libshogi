@@ -1001,7 +1001,8 @@ Move::Move Position::move (const CSAMove &mv)
 
     // check if dropping
     if (m.substr(1,2) == "00") {
-        return drop(Move::drop(pc, to));;
+        _lastmove = Move::drop(pc, to);
+        return drop(_lastmove);;
     }
 
     // move from
