@@ -402,11 +402,48 @@ int main (int argc, char *argv[])
             if (m.move[0] == '%') {
                 break;
             }
+            // Number of Possible moves
+            int numB = p.possibleB();
+            int numW = p.possibleW();
+            //
             // Generate legal moves
             // libshogi
             move.setsz(0);
-            p.genMove (move);
+            p.genMove  (move);
             p.minorMove(move);
+            // check number of moves
+            int cnt = 0;
+            for (auto mv : move) {
+                if (mv & Move::Drop && (! p.nchecks()) ) {
+                    continue;
+                }
+                if (mv & Move::Promote) {
+                    auto dchk = false;
+                    for (auto _mv : move) {
+                        if (_mv == (mv ^ Move::Promote)) {
+                            dchk = true;
+                            break;
+                        }
+                    }
+                    if (dchk) {
+                        continue;
+                    }
+                }
+                ++cnt;
+            }
+            if ((p.turn() == Color::Black && cnt != numB) ||
+                (p.turn() == Color::White && cnt != numW)    ) {
+                printMoveLibsh(p);
+                std::cerr << p    << std::endl
+                          << "Possible move for black : "
+                          << numB << std::endl
+                          << "Possible move for white : "
+                          << numW << std::endl
+                          << "Actually                : "
+                          << cnt  << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            //
             // lesserpyon
             tenum = k.MakeLegalMoves(turn, te);
             // 

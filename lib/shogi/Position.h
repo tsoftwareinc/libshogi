@@ -192,15 +192,24 @@ public:
     void                        makeCheck  (void);
 
     /// Number of checks
-    int                         nchecks    (void);
+    int                         nchecks    (void)           const;
+
+    /// Number of possible moves
+    int                         possible   (void);
+
+    /// Number of possible moves for black
+    int                         possibleB  (void);
+
+    /// Number of possible moves for white
+    int                         possibleW  (void);
 
     /// Generate moves
     void                        genMove    (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate moves for Black
+    /// Generate moves for black
     void                        genMoveB   (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate moves for White
+    /// Generate moves for white
     void                        genMoveW   (foundation::Array<Move::Move, Move::Max> &);
 
     /// Checkout minor moves
@@ -209,30 +218,30 @@ public:
     /// Generate moves fast
     void                        genFast    (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate moves for Black fast
+    /// Generate moves for wlack fast
     void                        genFastB   (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate moves for White fast
+    /// Generate moves for white fast
     void                        genFastW   (foundation::Array<Move::Move, Move::Max> &);
 
 
     /// Generate capturing moves
     void                        genCapt    (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate capturing moves for Black
+    /// Generate capturing moves for wlack
     void                        genCaptB   (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate capturing moves for White
+    /// Generate capturing moves for white
     void                        genCaptW   (foundation::Array<Move::Move, Move::Max> &);
 
 
     /// Generate moves giving chek
     void                        genChck    (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate moves giving chek for Black
+    /// Generate moves giving chek for black
     void                        genChckB   (foundation::Array<Move::Move, Move::Max> &);
 
-    /// Generate moves giving chek for White
+    /// Generate moves giving chek for white
     void                        genChckW   (foundation::Array<Move::Move, Move::Max> &);
 
 
@@ -244,6 +253,16 @@ public:
 
     /// Generate moves giving chek fast for white
     void                        genCFstW   (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Capture the checking piece
+    void                        delChck    (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Capture the checking piece for black
+    void                        delChckB   (foundation::Array<Move::Move, Move::Max> &);
+
+    /// Capture the checking piece for white
+    void                        delChckW   (foundation::Array<Move::Move, Move::Max> &);
+
 
 
     /// Number of moves so far
@@ -380,6 +399,63 @@ protected:
     void                        _minorMove (Bitboard &to, Square::Square sq,
                                             foundation::Array<Move::Move, Move::Max> &m);
     void                        _cacheMove (Bitboard &to, Square::Square sq);
+
+    /// Number of moves
+    int                         _numPinB    (void);
+    int                         _numPinW    (void);
+
+    int                         _numBFU     (void);
+    int                         _numWFU     (void);
+
+    int                         _numBKY     (void);
+    int                         _numWKY     (void);
+
+    int                         _numBKE     (void);
+    int                         _numWKE     (void);
+
+    int                         _numBGI     (void);
+    int                         _numWGI     (void);
+
+    int                         _numBKI     (void);
+    int                         _numWKI     (void);
+
+    int                         _numBUM     (void);
+    int                         _numWUM     (void);
+
+    int                         _numBRY     (void);
+    int                         _numWRY     (void);
+
+    int                         _numBKA     (void);
+    int                         _numWKA     (void);
+
+    int                         _numBHI     (void);
+    int                         _numWHI     (void);
+
+    int                         _numBOU     (void);
+    int                         _numBOU     (const Bitboard &);
+    int                         _numWOU     (void);
+    int                         _numWOU     (const Bitboard &);
+
+    int                         _numOutB    (void);
+    int                         _numOutW    (void);
+
+    int                         _numEscapeB (void);
+    int                         _numEscapeW (void);
+
+    int                         _numToB     (const Bitboard &, Square::Square);
+    int                         _numToW     (const Bitboard &, Square::Square);
+
+    int                         _ndropBFU   (const Bitboard &);
+    int                         _ndropWFU   (const Bitboard &);
+
+    int                         _ndropBKY   (const Bitboard &);
+    int                         _ndropWKY   (const Bitboard &);
+
+    int                         _ndropBKE   (const Bitboard &);
+    int                         _ndropWKE   (const Bitboard &);
+
+    int                         _ndropBOT   (const Bitboard &);
+    int                         _ndropWOT   (const Bitboard &);
 
     /// Move FU
     void                        _moveBFU    (foundation::Array<Move::Move, Move::Max> &);

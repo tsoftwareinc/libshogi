@@ -93,7 +93,7 @@ enum Move : uint32_t {
 
 
 /// Number of move at most
-static const int            Max = 593;
+static const int            Max = 608;
 
 
 

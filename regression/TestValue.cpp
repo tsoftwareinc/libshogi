@@ -39,17 +39,15 @@ int main (int argc, char *argv[])
             p.move(m);
             int exchange = 0;
             for (auto sq : Square::all)   {
-                exchange += Evaluation::Value[p.square(sq)];
+                exchange  += Evaluation::Value[p.square(sq)];
             }
             for (auto pc : Piece::hand)   {
                 // for black's hands
                 int bhand  = p.hand(Color::Black, pc);
-                exchange  -= Evaluation::Value[Piece::polar(pc, Color::White)] * bhand;
                 exchange  += Evaluation::Hands[bhand][pc];
                 // for white's hands
                 int whand  = p.hand(Color::White, pc);
-                exchange  -= Evaluation::Value[Piece::polar(pc, Color::Black)] * whand;
-                exchange  -= Evaluation::Hands[bhand][pc];
+                exchange  -= Evaluation::Hands[whand][pc];
             }
             if (p.exchange() != exchange) {
                 std::cout << exchange << std::endl

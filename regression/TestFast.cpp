@@ -315,6 +315,43 @@ static void aroundLesserpy (const Position &p)
 
 
 /**
+ * Test delChck()
+ *
+ */
+static void deleteCheck (MyPosition &p)
+{
+
+    if (p.nchecks() != 1) {
+        return;
+    }
+
+    Array<Move::Move, Move::Max> _m;
+    p.delChck(_m);
+
+    auto sq = (p.check()).lsb();
+
+    for (auto m : move) {
+        if (Move::to(m) == sq) {
+            bool check = false;
+            for (auto d : _m) {
+                if (m == d) {
+                    check = true;
+                    break;
+                }
+            }
+            if (! check) {
+                p.show(m);
+                std::cerr << std::endl << "is missing on delChck()." << std::endl;
+                p.show();
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+}
+
+
+
+/**
  * Convert CSA koma string to numeric koma index
  * @param str CSA koma string
  * @return numeric koma index number
@@ -448,6 +485,7 @@ int main (int argc, char *argv[])
             // 
             aroundLibshogi(p, turn);
             aroundLesserpy(p);
+            deleteCheck(p);
             // Proceed
             // libshogi
             p.move(m);

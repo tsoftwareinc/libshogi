@@ -152,7 +152,7 @@ public:
     iterator    end    (void);
 
 
-private:
+protected:
 
     size_t      _reserve;
     size_t      _values;

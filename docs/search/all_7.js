@@ -16,8 +16,8 @@ var searchData=
   ['genmoveb',['genMoveB',['../classgame_1_1Position.html#aed97ee923b8287204092f9cfd33eeb32',1,'game::Position']]],
   ['genmovew',['genMoveW',['../classgame_1_1Position.html#a19e423c3cb8477f7ffb7ae5ffa87b052',1,'game::Position']]],
   ['get',['get',['../classfoundation_1_1Atomic.html#a2532a981b2684d7cd1033e33f39c174b',1,'foundation::Atomic']]],
-  ['getaddress',['getAddress',['../classgame_1_1CSAConnection.html#ae619cbe85837e1eb80a1e45a93e6d1e6',1,'game::CSAConnection']]],
-  ['getportnumber',['getPortNumber',['../classgame_1_1CSAConnection.html#a97571d03a103f722311b9a29f6015d4d',1,'game::CSAConnection']]],
-  ['getstate',['getState',['../classgame_1_1CSAConnection.html#ab582959868232a86143dd5df4530c7a1',1,'game::CSAConnection']]],
+  ['getaddress',['getAddress',['../classgame_1_1CSAConnection.html#a644e066a392fa10043e5eaf1d5c34ec8',1,'game::CSAConnection']]],
+  ['getportnumber',['getPortNumber',['../classgame_1_1CSAConnection.html#aeb4bf43c4c975df31b8928e0f1a20ebf',1,'game::CSAConnection']]],
+  ['getstate',['getState',['../classgame_1_1CSAConnection.html#a2e166547c4b9c948078d5de1a667b022',1,'game::CSAConnection']]],
   ['globalsync',['globalSync',['../classfoundation_1_1Thread.html#aa706108a8472b972d7adab378d54f9af',1,'foundation::Thread']]]
 ];

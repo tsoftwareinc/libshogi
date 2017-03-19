@@ -6,6 +6,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST MOVE   :"
@@ -14,6 +15,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST EFFECT :"
@@ -22,6 +24,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST PIN    :"
@@ -30,6 +33,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST FAST   :"
@@ -38,6 +42,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST CAPT   :"
@@ -46,6 +51,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST OUTE   :"
@@ -54,6 +60,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST OFST   :"
@@ -62,6 +69,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST UNDO   :"
@@ -70,6 +78,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST GETOUT :"
@@ -78,6 +87,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST VALUE  :"
@@ -86,6 +96,7 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi
 
 echo "TEST HASH   :"
@@ -94,4 +105,5 @@ then
     echo OK
 else
     echo NG
+    exit 1
 fi

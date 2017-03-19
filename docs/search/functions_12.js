@@ -9,5 +9,5 @@ var searchData=
   ['toregion',['toRegion',['../Convert_8h.html#a15020a7eab83b521c6bd13e61e5b4ac5',1,'game::Convert']]],
   ['tosquare',['toSquare',['../Convert_8h.html#a8a97b21960df5418bbe78a6d137c486e',1,'game::Convert']]],
   ['trysync',['trysync',['../classfoundation_1_1Thread.html#a1b6371dac4e43e688850bb67c906c880',1,'foundation::Thread']]],
-  ['turn',['turn',['../classgame_1_1Position.html#a2b58a032d568e511ee97982f28dfc60f',1,'game::Position::turn(void) const'],['../classgame_1_1Position.html#a75328b357434b5f796c507e7740e756b',1,'game::Position::turn(Color::Color)']]]
+  ['turn',['turn',['../classgame_1_1Position.html#a12f4831d9e641ced57dc863972158930',1,'game::Position::turn(void) const '],['../classgame_1_1Position.html#a75328b357434b5f796c507e7740e756b',1,'game::Position::turn(Color::Color)']]]
 ];

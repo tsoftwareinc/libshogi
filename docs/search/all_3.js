@@ -8,7 +8,7 @@ var searchData=
   ['color_2eh',['Color.h',['../Color_8h.html',1,'']]],
   ['color_5fall',['COLOR_ALL',['../Color_8h.html#a268fdaa44c533da9f7040c514330498a',1,'Color.h']]],
   ['colors',['Colors',['../Color_8h.html#a2d3d06a8e414b7290cd5fbf7b323ee5dae1f3b0fdde84cfe026d2a061a97fadde',1,'game::Color']]],
-  ['column',['column',['../classgame_1_1Bitboard.html#a8e3603e97af29256b46f4a8f27251c64',1,'game::Bitboard::column()'],['../Bitboard_8h.html#aff18437168b7d7754107c9534c4026a1',1,'column():&#160;Bitboard.h']]],
+  ['column',['column',['../classgame_1_1Bitboard.html#a6f4770efac3a8ce44c8bd55c40a73cd7',1,'game::Bitboard::column()'],['../Bitboard_8h.html#a7a37a63f76d2f33f945ce6e8fed773b1',1,'column():&#160;Bitboard.h']]],
   ['common_2eh',['Common.h',['../Common_8h.html',1,'']]],
   ['connect',['connect',['../classgame_1_1CSAConnection.html#ab32e49e8993cf6f30e999a67958044a8',1,'game::CSAConnection']]],
   ['convert_2eh',['Convert.h',['../Convert_8h.html',1,'']]],

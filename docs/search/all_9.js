@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['index',['index',['../classgame_1_1Bitboard.html#a207f367880723c108e02c7b2bc330979',1,'game::Bitboard::index()'],['../Bitboard_8h.html#adb24b9a2fded80fc057dfa2e045d812b',1,'index():&#160;Bitboard.h']]],
+  ['index',['index',['../classgame_1_1Bitboard.html#a27cde1938a5b92c7c5dbc856f097c513',1,'game::Bitboard::index()'],['../Bitboard_8h.html#a007164065013c924206f6cdf72a9fe2b',1,'index():&#160;Bitboard.h']]],
   ['infinity',['Infinity',['../Evaluation_8h.html#ac717379c8ff5b819d3d24c1351e54543',1,'game::Evaluation']]],
   ['init',['init',['../classgame_1_1Position.html#a8f508dca44809cba3d6d4f29477f2da0',1,'game::Position']]],
   ['initialize',['initialize',['../Effect_8cpp.html#a9aae2826a03973cc623ce029980e8e98',1,'game::Effect::initialize()'],['../Shogi_8cpp.html#ab5dfa9b9d7275c1e47e3443e6ceb57de',1,'game::Shogi::initialize()'],['../Zobrist_8h.html#ae0ceb3b2b2049608c6b0efecba22b91f',1,'game::Zobrist::initialize()']]],

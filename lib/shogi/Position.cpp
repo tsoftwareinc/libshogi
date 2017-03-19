@@ -1347,12 +1347,105 @@ void Position::makeCheck (void)
  * The function simply returns _nchek that depends on the last move
  * generation.
  */
-int Position::nchecks (void)
+int Position::nchecks (void) const
 {
 
     return _nchek;
 
 }
+
+
+
+/**
+ * Number of possible moves
+ * @return number of moves for Black
+ *
+ */
+int Position::possible (void)
+{
+
+    return ((possibleB() - possibleW()));
+
+}
+
+
+
+/**
+ * Number of possible moves for black
+ * @return number of moves for black
+ *
+ */
+int Position::possibleB (void)
+{
+
+    // make pin
+    _makePinB();
+
+    // check if OU must get out of the check
+    if (_nchek && _next == Color::Black) {
+        return _numOutB();
+    }
+
+    // number of moves
+    int num = 0;
+
+    // move the pinned pieces
+    num  = _numPinB();
+
+    num += _numBFU();
+    num += _numBKY();
+    num += _numBKE();
+    num += _numBGI();
+    num += _numBKI();
+    num += _numBUM();
+    num += _numBRY();
+    num += _numBKA();
+    num += _numBHI();
+    num += _numBOU();
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for black
+ * @return number of moves for black
+ *
+ */
+int Position::possibleW (void)
+{
+
+    // make pin
+    _makePinW();
+
+    // check if OU must get out of the check
+    if (_nchek && _next == Color::White) {
+        return _numOutW();
+    }
+
+    // number of moves
+    int num = 0;
+
+    // move the pinned pieces
+    num  = _numPinW();
+
+    num += _numWFU();
+    num += _numWKY();
+    num += _numWKE();
+    num += _numWGI();
+    num += _numWKI();
+    num += _numWUM();
+    num += _numWRY();
+    num += _numWKA();
+    num += _numWHI();
+    num += _numWOU();
+
+    return num;
+
+}
+
 
 
 
@@ -1406,7 +1499,7 @@ void Position::genMoveB (Array<Move::Move, Move::Max> &m)
     _moveBRY(m);
     _moveBKA(m);
     _moveBHI(m);
-    _moveBOU(~_piece[Color::Black], m);
+    _moveBOU(m);
 
     _dropBFU(_empty, m);
     _dropBKY(_empty, m);
@@ -1823,6 +1916,73 @@ void Position::genCFstW (Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Capture the checking piece
+ * @param m array to store moves
+ */
+void Position::delChck (Array<Move::Move, Move::Max> &m)
+{
+
+    if (_next == Color::Black) {
+        delChckB(m);
+    } else {
+        delChckW(m);
+    }
+
+}
+
+
+
+/**
+ * Capture the checking piece for black
+ * @param m array to store moves
+ */
+void Position::delChckB (Array<Move::Move, Move::Max> &m)
+{
+
+    // target square
+    auto sq   = _chckp.lsb();
+
+    // capture the piece making a check (except for a move to caputure by OU)
+    auto mask = Bitboard::Invert[_kingSB];
+    _fastToB(mask, sq, m);
+
+    // capture by OU itself
+    if ((Effect::OC(_kingSB) & _chckp)) {
+        if (! _chkEffectW(sq)) {
+            m.add(Move::move(_kingSB, sq));
+        }
+    }
+
+}
+
+
+
+/**
+ * Capture the checking piece for white
+ * @param m array to store moves
+ */
+void Position::delChckW (Array<Move::Move, Move::Max> &m)
+{
+
+    // target square
+    auto sq   = _chckp.lsb();
+
+    // capture the piece making a check (except for a move to caputure by OU)
+    auto mask = Bitboard::Invert[_kingSW];
+    _fastToW(mask, sq, m);
+
+    // capture by OU itself
+    if ((Effect::OC(_kingSW) & _chckp)) {
+        if (! _chkEffectB(sq)) {
+            m.add(Move::move(_kingSW, sq));
+        }
+    }
+
+}
+
+
+
+/**
  * Fundamental function to generate nomal moves
  * @param to   bitmap for squares moved to
  * @param from square moved from
@@ -1918,6 +2078,32 @@ inline void _dropMove (Piece::Piece pc, Bitboard &to, Array<Move::Move, Move::Ma
         auto s = to.pick();
         m.add(Move::drop(pc, s));
     }
+}
+
+
+
+/**
+ * Number of possible moves for BFU
+ * @return number of moves
+ */
+int Position::_numBFU (void)
+{
+
+    return (((_bbord[Piece::BFU] & _pinnd) >> 1) & (~_piece[Color::Black])).popcnt();
+
+}
+
+
+
+/**
+ * Number of possible moves for WFU
+ * @return number of moves
+ */
+int Position::_numWFU (void)
+{
+
+    return (((_bbord[Piece::WFU] & _pinnd) << 1) & (~_piece[Color::White])).popcnt();
+
 }
 
 
@@ -2129,6 +2315,49 @@ void Position::_cfstWFU (Array<Move::Move, Move::Max> &m)
 }
 
 
+
+/**
+ * Number of possible moves for BKY
+ * @return number of moves
+ */
+int Position::_numBKY (void)
+{
+
+    auto pp  = _bbord[Piece::BKY] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::KB(sq, _ocupd) & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WKY
+ * @return number of moves
+ */
+int Position::_numWKY (void)
+{
+
+    auto pp  = _bbord[Piece::WKY] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::KW(sq, _ocupd) & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
 /**
  * Move BKY
  * @param m array to store moves
@@ -2270,6 +2499,48 @@ void Position::_chckWKY (const Bitboard &p, const Bitboard &em,
 
 
 /**
+ * Number of possible moves for BKE
+ * @return number of moves
+ */
+int Position::_numBKE (void)
+{
+
+    auto pp  = _bbord[Piece::BKE] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::AD(sq, Piece::BKE) & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WKE
+ * @return number of moves
+ */
+int Position::_numWKE (void)
+{
+
+    auto pp  = _bbord[Piece::WKE] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::AD(sq, Piece::WKE) & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
  * Move BKE
  * @param m array to store moves
  */
@@ -2403,6 +2674,48 @@ void Position::_chckWKE (const Bitboard &p, const Bitboard &em,
         _normlMove(en, sq, m);
         _promtMove(ep, sq, m);
     }
+
+}
+
+
+
+/**
+ * Number of possible moves for BGI
+ * @return number of moves
+ */
+int Position::_numBGI (void)
+{
+
+    auto pp  = _bbord[Piece::BGI] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::AD(sq, Piece::BGI) & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WGI
+ * @return number of moves
+ */
+int Position::_numWGI (void)
+{
+
+    auto pp  = _bbord[Piece::WGI] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::AD(sq, Piece::WGI) & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
 
 }
 
@@ -2651,6 +2964,52 @@ void Position::_prmtWGI (const Bitboard &mask, Square::Square sq,
 
 
 /**
+ * Number of possible moves for BKI, BTO, BNY, BNK and BNG
+ * @return number of moves
+ */
+int Position::_numBKI (void)
+{
+
+    auto pp  = _bbord[Piece::BKI] | _bbord[Piece::BTO] |
+               _bbord[Piece::BNY] | _bbord[Piece::BNK] | _bbord[Piece::BNG];
+    int  num = 0;
+
+    pp &= _pinnd;
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::AD(sq, Piece::BKI) & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WKI, WTO, WNY, WNK and WNG
+ * @return number of moves
+ */
+int Position::_numWKI (void)
+{
+
+    auto pp  = _bbord[Piece::WKI] | _bbord[Piece::WTO] |
+               _bbord[Piece::WNY] | _bbord[Piece::WNK] | _bbord[Piece::WNG];
+    int  num = 0;
+
+    pp &= _pinnd;
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::AD(sq, Piece::WKI) & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
  * Move BKI, BTO, BNY, BNK and BNG
  * @param m array to store moves
  */
@@ -2809,6 +3168,50 @@ void Position::_moveWKI (const Bitboard &mask, Square::Square sq,
 
 
 /**
+ * Number of possible moves for BUM
+ * @return number of moves
+ */
+int Position::_numBUM (void)
+{
+
+    auto pp  = _bbord[Piece::BUM] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += ((Effect::OC(sq) | Effect::KA(sq, _ocupd))
+                                & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WUM
+ * @return number of moves
+ */
+int Position::_numWUM (void)
+{
+
+    auto pp  = _bbord[Piece::WUM] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += ((Effect::OC(sq) | Effect::KA(sq, _ocupd))
+                                & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
  * Move BUM
  * @param m array to store moves
  */
@@ -2938,6 +3341,50 @@ void Position::_moveUM (const Bitboard &mask, Square::Square sq,
 
     auto ef = (Effect::OC(sq) | Effect::KA(sq, _ocupd)) & mask;
     _normlMove(ef, sq, m);
+
+}
+
+
+
+/**
+ * Number of possible moves for BRY
+ * @return number of moves
+ */
+int Position::_numBRY (void)
+{
+
+    auto pp  = _bbord[Piece::BRY] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += ((Effect::OC(sq) | Effect::HI(sq, _ocupd))
+                                & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WRY
+ * @return number of moves
+ */
+int Position::_numWRY (void)
+{
+
+    auto pp  = _bbord[Piece::WRY] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += ((Effect::OC(sq) | Effect::HI(sq, _ocupd))
+                                & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
 
 }
 
@@ -3074,6 +3521,46 @@ void Position::_moveRY (const Bitboard &mask, Square::Square sq,
     auto ef = (Effect::OC(sq) | Effect::HI(sq, _ocupd)) & mask;
     _normlMove(ef, sq, m);
 
+}
+
+
+
+/**
+ * Number of possible moves for BKA
+ * @return number of moves
+ */
+int Position::_numBKA (void)
+{
+
+    auto pp  = _bbord[Piece::BKA] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::KA(sq, _ocupd) & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+}
+
+
+
+/**
+ * Number of possible moves for WKA
+ * @return number of moves
+ */
+int Position::_numWKA (void)
+{
+
+    auto pp  = _bbord[Piece::WKA] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::KA(sq, _ocupd) & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
 }
 
 
@@ -3428,6 +3915,46 @@ void Position::_pfastKA (const Bitboard &mask, Square::Square sq,
     auto ef = Effect::KA(sq, _ocupd) & mask;
     _promtMove(ef, sq, m);
 
+}
+
+
+
+/**
+ * Number of possible moves for BHI
+ * @return number of moves
+ */
+int Position::_numBHI (void)
+{
+
+    auto pp  = _bbord[Piece::BHI] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::HI(sq, _ocupd) & (~_piece[Color::Black])).popcnt();
+    }
+
+    return num;
+}
+
+
+
+/**
+ * Number of possible moves for WHI
+ * @return number of moves
+ */
+int Position::_numWHI (void)
+{
+
+    auto pp  = _bbord[Piece::WHI] & _pinnd;
+    int  num = 0;
+
+    while (pp) {
+        auto sq = pp.pick();
+        num += (Effect::HI(sq, _ocupd) & (~_piece[Color::White])).popcnt();
+    }
+
+    return num;
 }
 
 
@@ -4077,6 +4604,118 @@ void Position::_discCFstW (Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Number of possible moves for black pinned piece
+ * @return number of moves
+ */
+int Position::_numPinB (void)
+{
+
+    using namespace Piece;
+
+    // check if any pinned piece 
+    auto pinned = ~_pinnd;
+    if (! (pinned)) {
+        return 0;
+    }
+
+    // number of moves
+    int  num    = 0;
+
+    while (pinned) {
+        auto sq = pinned.pick();
+        auto dr = Direction::distantDirection(sq, _kingSB);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::Black]);
+        auto pc = _board[sq];
+        switch (pc) {
+        case BFU: case BKY: case BKE:
+            break;
+        case BGI:
+            num += (Effect::AD(sq, Piece::BGI) & mk).popcnt();
+            break;
+        case BKI: case BTO: case BNY: case BNK: case BNG:
+            num += (Effect::AD(sq, Piece::BKI) & mk).popcnt();
+            break;
+        case BUM:
+            num += ((Effect::OC(sq) | Effect::KA(sq, _ocupd)) & mk).popcnt();
+            break;
+        case BRY:
+            num += ((Effect::OC(sq) | Effect::HI(sq, _ocupd)) & mk).popcnt();
+            break;
+        case BKA:
+            num += (Effect::KA(sq, _ocupd) & mk).popcnt();
+            break;
+        case BHI:
+            num += (Effect::HI(sq, _ocupd) & mk).popcnt();
+            break;
+        default:
+            _GAME_POSITION_CHECK(0);
+            break;
+        }
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for black pinned piece
+ * @return number of moves
+ */
+int Position::_numPinW (void)
+{
+
+    using namespace Piece;
+
+    // check if any pinned piece 
+    auto pinned = ~_pinnd;
+    if (! (pinned)) {
+        return 0;
+    }
+
+    // number of moves
+    int  num    = 0;
+
+    while (pinned) {
+        auto sq = pinned.pick();
+        auto dr = Direction::distantDirection(sq, _kingSW);
+        auto mk = DirectionMap[dr](sq) & (~_piece[Color::White]);
+        auto pc = _board[sq];
+        switch (pc) {
+        case WFU: case WKY: case WKE:
+            break;
+        case WGI:
+            num += (Effect::AD(sq, Piece::WGI) & mk).popcnt();
+            break;
+        case WKI: case WTO: case WNY: case WNK: case WNG:
+            num += (Effect::AD(sq, Piece::WKI) & mk).popcnt();
+            break;
+        case WUM:
+            num += ((Effect::OC(sq) | Effect::KA(sq, _ocupd)) & mk).popcnt();
+            break;
+        case WRY:
+            num += ((Effect::OC(sq) | Effect::HI(sq, _ocupd)) & mk).popcnt();
+            break;
+        case WKA:
+            num += (Effect::KA(sq, _ocupd) & mk).popcnt();
+            break;
+        case WHI:
+            num += (Effect::HI(sq, _ocupd) & mk).popcnt();
+            break;
+        default:
+            _GAME_POSITION_CHECK(0);
+            break;
+        }
+    }
+
+    return num;
+
+}
+
+
+
+/**
  * Move pinned piece for black
  * @param m array to store moves
  */
@@ -4335,6 +4974,98 @@ void Position::_chckPinW (Array<Move::Move, Move::Max> &m)
 
 
 /**
+ * Number of possible moves for BOU
+ * @return number of moves
+ */
+int Position::_numBOU (void)
+{
+
+    int  num      = 0;
+    auto surround = Effect::OC(_kingSB) & (~_piece[Color::Black]);
+    while (surround) {
+        auto sq = surround.pick();
+        if (_chkEffectW(sq)) {
+            continue;
+        }
+        ++num;
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for BOU with mask
+ * @return number of moves
+ */
+int Position::_numBOU (const Bitboard &mask)
+{
+
+    int  num      = 0;
+    auto surround = Effect::OC(_kingSB) & mask;
+    while (surround) {
+        auto sq = surround.pick();
+        if (_chkEffectW(sq)) {
+            continue;
+        }
+        ++num;
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WOU
+ * @return number of moves
+ */
+int Position::_numWOU (void)
+{
+
+    int  num      = 0;
+    auto surround = Effect::OC(_kingSW) & (~_piece[Color::White]);
+    while (surround) {
+        auto sq = surround.pick();
+        if (_chkEffectB(sq)) {
+            continue;
+        }
+        ++num;
+    }
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves for WOU with mask
+ * @return number of moves
+ */
+int Position::_numWOU (const Bitboard &mask)
+{
+
+    int  num      = 0;
+    auto surround = Effect::OC(_kingSW) & mask;
+    while (surround) {
+        auto sq = surround.pick();
+        if (_chkEffectB(sq)) {
+            continue;
+        }
+        ++num;
+    }
+
+    return num;
+
+}
+
+
+
+/**
  * Moves of BOU
  * 
  */
@@ -4409,6 +5140,82 @@ void Position::_moveWOU (const Bitboard &mask, Array<Move::Move, Move::Max> &m)
         }
         m.add(Move::move(_kingSW, sq));
     }
+
+}
+
+
+
+/**
+ * Number of possible moves to get out of check for BOU
+ * @return number of moves
+ */
+int Position::_numOutB (void)
+{
+
+    // double check (OU can only run)
+    if (_nchek == 2) {
+        return _numEscapeB();
+    }
+
+    // capture the piece making a check (except for a move to caputure by OU)
+    auto mask = Bitboard::Invert[_kingSB] & _pinnd;
+    int  num  = _numToB(mask, _chckp.lsb());
+
+    // drop a piece to block
+    num += _ndropBFU(_chkDE);
+    num += _ndropBKY(_chkDE);
+    num += _ndropBKE(_chkDE);
+    num += _ndropBOT(_chkDE);
+
+    // move a piece to block
+    auto sq = _chkDE;
+    while (sq) {
+        auto s = sq.pick();
+        num += _numToB(mask, s);
+    }
+
+    // move OU to get out of check
+    num += _numEscapeB();
+
+    return num;
+
+}
+
+
+
+/**
+ * Number of possible moves to get out of check for WOU
+ * @return number of moves
+ */
+int Position::_numOutW (void)
+{
+
+    // double check (OU can only run)
+    if (_nchek == 2) {
+        return _numEscapeW();
+    }
+
+    // capture the piece making a check (except for a move to caputure by OU)
+    auto mask = Bitboard::Invert[_kingSW] & _pinnd;
+    int  num  = _numToW(mask, _chckp.lsb());
+
+    // drop a piece to block
+    num += _ndropWFU(_chkDE);
+    num += _ndropWKY(_chkDE);
+    num += _ndropWKE(_chkDE);
+    num += _ndropWOT(_chkDE);
+
+    // move a piece to block
+    auto sq = _chkDE;
+    while (sq) {
+        auto s = sq.pick();
+        num += _numToW(mask, s);
+    }
+
+    // move OU to get out of check
+    num += _numEscapeW();
+
+    return num;
 
 }
 
@@ -4597,17 +5404,48 @@ Bitboard Position::_escape (Square::Square current)
 
 
 /**
+ * Number of possible moves to escape from checks for BOU
+ * @return number of moves
+ */
+int Position::_numEscapeB (void)
+{
+
+    // make direction mask
+    auto dirmask = (~_piece[Color::Black]) & _escape(_kingSB);
+
+    // move
+    return _numBOU(dirmask);
+
+}
+
+
+
+/**
+ * Number of possible moves to escape from checks for WOU
+ * @return number of moves
+ */
+int Position::_numEscapeW (void)
+{
+
+    // make direction mask
+    auto dirmask = (~_piece[Color::White]) & _escape(_kingSW);
+
+    // move
+    return _numWOU(dirmask);
+
+}
+
+
+
+/**
  * Let BOU escape from checks
  * @param m array to store moves
  */
 void Position::_escapeB (Array<Move::Move, Move::Max> &m)
 {
 
-    // current position of OU to move
-    auto current = _kingSB;
-
     // make direction mask
-    auto dirmask = (~_piece[Color::Black]) & _escape(current);
+    auto dirmask = (~_piece[Color::Black]) & _escape(_kingSB);
 
     // move
     _moveBOU(dirmask, m);
@@ -4623,11 +5461,8 @@ void Position::_escapeB (Array<Move::Move, Move::Max> &m)
 void Position::_escapeW (Array<Move::Move, Move::Max> &m)
 {
 
-    // current position of OU to move
-    auto current  = _kingSW;
-
     // make direction mask
-    auto dirmask = (~_piece[Color::White]) & _escape(current);
+    auto dirmask = (~_piece[Color::White]) & _escape(_kingSW);
 
     // move
     _moveWOU(dirmask, m);
@@ -4897,6 +5732,167 @@ void Position::_fastWhite (Square::Square from, Square::Square to,
     default:
         m.add(Move::move(from, to)); 
     }
+
+}
+
+
+
+/**
+ * Number of possible moves to drop BFU
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropBFU (const Bitboard &mask)
+{
+
+    // check if the piece is available
+    if (_hands[Color::Black][Piece::FU] == 0) {
+        return 0;
+    }
+
+    // Nifu check
+    return (_bbord[Piece::BFU].column() & mask & CanDropBFU).popcnt();
+
+}
+
+
+
+/**
+ * Number of possible moves to drop WFU
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropWFU (const Bitboard &mask)
+{
+
+    // check if the piece is available
+    if (_hands[Color::White][Piece::FU] == 0) {
+        return 0;
+    }
+
+    // Nifu check and return the number
+    return (_bbord[Piece::WFU].column() & mask & CanDropWFU).popcnt();
+
+}
+
+
+/**
+ * Number of possible moves to drop BKY
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropBKY (const Bitboard &mask)
+{
+
+    // check if the piece is available
+    if (_hands[Color::Black][Piece::KY] == 0) {
+        return 0;
+    }
+
+    return (mask & CanDropBFU).popcnt();
+
+}
+
+
+
+/**
+ * Number of possible moves to drop WKY
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropWKY (const Bitboard &mask)
+{
+
+    // check if the piece is available
+    if (_hands[Color::White][Piece::KY] == 0) {
+        return 0;
+    }
+
+    return (mask & CanDropWFU).popcnt();
+
+}
+
+
+
+/**
+ * Number of possible moves to drop BKE
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropBKE (const Bitboard &mask)
+{
+
+    // check if the piece is available
+    if (_hands[Color::Black][Piece::KE] == 0) {
+        return 0;
+    }
+
+    return (mask & CanDropBKE).popcnt();
+
+}
+
+
+
+/**
+ * Number of possible moves to drop WKE
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropWKE (const Bitboard &mask)
+{
+
+    // check if the piece is available
+    if (_hands[Color::White][Piece::KE] == 0) {
+        return 0;
+    }
+
+    return (mask & CanDropWKE).popcnt();
+
+}
+
+
+
+/**
+ * Number of possible moves to drop other black pieces
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropBOT (const Bitboard &mask)
+{
+
+    Piece::Piece            list[] = {Piece::GI, Piece::KI, Piece::KA, Piece::HI};
+
+    int  num = 0;
+    for (auto pc : list) {
+        if (_hands[Color::Black][pc] > 0) {
+            ++num;
+        }
+    }
+
+    return (num * mask.popcnt());
+
+}
+
+
+
+/**
+ * Number of possible moves to drop other white pieces
+ * @param mask potential squares
+ * @return number of moves
+ */
+int Position::_ndropWOT (const Bitboard &mask)
+{
+
+    Piece::Piece            list[] = {Piece::GI, Piece::KI, Piece::KA, Piece::HI};
+
+    int  num = 0;
+    for (auto pc : list) {
+        if (_hands[Color::White][pc] > 0) {
+            ++num;
+        }
+    }
+
+    return (num * mask.popcnt());
 
 }
 
@@ -5179,6 +6175,38 @@ void Position::_dchkWOT (Array<Move::Move, Move::Max> &m)
             m.add(Move::drop(Piece::HI, s));
         }
     }
+
+}
+
+
+
+/**
+ * Number of the moves to certain square for black
+ * @param mask mask
+ * @param dst  destination
+ * @return number of moves
+ */
+int Position::_numToB (const Bitboard &mask, Square::Square dst)
+{
+
+    _allEffectB(dst);
+    return (_effect & mask).popcnt();
+
+}
+
+
+
+/**
+ * Number of the moves to certain square for white
+ * @param mask mask
+ * @param dst  destination
+ * @return number of moves
+ */
+int Position::_numToW (const Bitboard &mask, Square::Square dst)
+{
+
+    _allEffectW(dst);
+    return (_effect & mask).popcnt();
 
 }
 
