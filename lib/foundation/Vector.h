@@ -231,7 +231,6 @@ template <typename T>
 void Vector<T>::add (const T &data)
 {
 
-    // sanity check
     _FOUNDATION_VECTOR_CHECK(_values < _reserve);
 
     _ptr[_values++] = data;
@@ -243,8 +242,8 @@ template <typename T>
 T Vector<T>::del (void)
 {
 
-    // sanity check
     _FOUNDATION_VECTOR_CHECK(_values != 0);
+
     return _ptr[_values--];
 
 }

@@ -392,7 +392,6 @@ void List<T>::del (ListHead<T> *ptr)
     ListHead<T>         *prev;
     ListHead<T>         *next;
 
-    // sanity checks
     _FOUNDATION_LIST_CHECK(ptr);
     _FOUNDATION_LIST_CHECK(_size);
     _FOUNDATION_LIST_CHECK(_top      != _end);

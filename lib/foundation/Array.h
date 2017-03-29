@@ -179,7 +179,6 @@ template <typename T, const size_t Size>
 void Array<T, Size>::add (const T &data)
 {
 
-    // sanity check
     _FOUNDATION_ARRAY_CHECK(_values < _reserve);
 
     _ptr[_values++] = data;
@@ -191,7 +190,6 @@ template <typename T, const size_t Size>
 T Array<T, Size>::del (void)
 {
 
-    // sanity check
     _FOUNDATION_ARRAY_CHECK(_values != 0);
     return _ptr[_values--];
 
@@ -237,6 +235,7 @@ T Array<T, Size>::value (size_t index) const
 {
 
     _FOUNDATION_ARRAY_CHECK(_reserve > index);
+
     return _ptr[index];
 
 }
@@ -262,6 +261,7 @@ T & Array<T, Size>::operator[] (size_t index)
 {
 
     _FOUNDATION_ARRAY_CHECK(_reserve > index);
+
     return _ptr[index];
 
 }

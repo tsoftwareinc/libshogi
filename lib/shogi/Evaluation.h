@@ -65,6 +65,9 @@ inline Eval                 min (Eval v1, Eval v2) {
                                 return (v1 < v2 ? v1 : v2);
                             }
 
+/// Absolute value
+inline Eval                 absolute(Eval v) { return abs(v); }
+
 /// Value of the pieces on board
 static const Eval           Value[Piece::Pieces] = {
                             //  EMP   BFU   BKY   BKE   BGI   BKA   BHI   BKI

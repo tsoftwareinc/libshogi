@@ -14,8 +14,9 @@ HEADERS = lib/shogi/Bitboard.h lib/shogi/Color.h lib/shogi/Convert.h \
           lib/foundation/Common.h \
           lib/foundation/Array.h lib/foundation/Atomic.h \
           lib/foundation/BTree.h lib/foundation/HashTree.h \
-          lib/foundation/List.h lib/foundation/Semaphore.h \
-	      lib/foundation/Mutex.h lib/foundation/SpinLock.h \
+          lib/foundation/List.h lib/foundation/MaxHeap.h \
+          lib/foundation/MinHeap.h lib/foundation/Mutex.h \
+          lib/foundation/Semaphore.h lib/foundation/SpinLock.h \
           lib/foundation/Thread.h lib/foundation/Vector.h \
 		  lib/foundation/BitOperations.h \
           lib/utility/Utility.h lib/csa/CSASummary.h \
