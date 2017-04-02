@@ -6,7 +6,7 @@
 
  @author     Hiroki Takada (TSoftware - http://www.tsoftware.jp)
 
- @date       2016-03-31
+ @date       2017-03-31
 
  @version    $Id:$
 
@@ -34,7 +34,7 @@
 
    DATE          REV    REMARK
   ============= ====== =======================================================
-  31st Mar 2016 0.1    Initial release.
+  31st Mar 2017 0.1    Initial release.
  
  *****************************************************************************/ 
 
@@ -87,10 +87,6 @@ class MaxHeap
 
 public:
 
-    /// Constructor
-    MaxHeap ()
-        : _reserve(0), _values(-1), _ptr(nullptr) {}
-
     /// Constructor with size 
     MaxHeap (size_t);
 
@@ -142,6 +138,9 @@ protected:
 
 private:
 
+    /// Void default constructor
+    MaxHeap ();
+
     void        swap (T &, T &);
 
 };
@@ -159,7 +158,7 @@ void MaxHeap<T>::swap (T &l, T &r)
 
 template <typename T>
 MaxHeap<T>::MaxHeap (size_t size)
-    : _reserve(size), _values(0)
+    : _reserve(size), _values(-1)
 {
 
     _FOUNDATION_MAXHEAP_CHECK(size);
@@ -171,7 +170,7 @@ MaxHeap<T>::MaxHeap (size_t size)
 
 template <typename T>
 MaxHeap<T>::MaxHeap (size_t size, T data)
-    : _reserve(size), _values(0)
+    : _reserve(size), _values(-1)
 {
 
     _FOUNDATION_MAXHEAP_CHECK(size);
@@ -212,7 +211,7 @@ void MaxHeap<T>::add (const T &data)
     ++_values;
     _ptr[_values] = data;
 
-    for (size_t i = _values; i > 1; ) {
+    for (size_t i = _values; i > 0; ) {
         size_t prt = (i - 1) >> 1;
         if (_ptr[prt] < _ptr[i]) {
             swap(_ptr[prt], _ptr[i]);

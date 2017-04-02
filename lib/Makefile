@@ -31,7 +31,6 @@ CFLAGS += -std=c++14 -Wall -Wextra -Wformat=2 -Wstrict-aliasing=2 \
           -D_FOUNDATION_ARRAY_DEBUG \
           -D_FOUNDATION_ATOMIC_DEBUG  -D_FOUNDATION_BTREE_DEBUG \
           -D_FOUNDATION_HASHTREE_DEBUG -D_FOUNDATION_LIST_DEBUG \
-          -D_FOUNDATION_MAXHEAP_DEBUG -D_FOUNDATION_MINHEAP_DEBUG \
           -D_FOUNDATION_SEMAPHORE_DEBUG -D_FOUNDATION_SPINLOCK_DEBUG \
           -D_FOUNDATION_THREAD_DEBUG -D_FOUNDATION_VECTOR_DEBUG \
           -D_UTILITY_DEBUG \
@@ -48,7 +47,6 @@ CFLAGS += -std=c++14 -Wall -Wextra -Wformat=2 -Wstrict-aliasing=2 \
           -D_FOUNDATION_ARRAY_DEBUG \
           -D_FOUNDATION_ATOMIC_DEBUG  -D_FOUNDATION_BTREE_DEBUG \
           -D_FOUNDATION_HASHTREE_DEBUG -D_FOUNDATION_LIST_DEBUG \
-          -D_FOUNDATION_MAXHEAP_DEBUG -D_FOUNDATION_MINHEAP_DEBUG \
           -D_FOUNDATION_SEMAPHORE_DEBUG -D_FOUNDATION_SPINLOCK_DEBUG \
           -D_FOUNDATION_THREAD_DEBUG -D_FOUNDATION_VECTOR_DEBUG \
           -D_UTILITY_DEBUG \
@@ -83,7 +81,8 @@ HEADERS = shogi/Bitboard.h shogi/Color.h shogi/Convert.h shogi/Direction.h \
           shogi/Square.h shogi/Zobrist.h \
           foundation/Common.h \
           foundation/Array.h foundation/Atomic.h foundation/BTree.h \
-          foundation/HashTree.h foundation/List.h foundation/Semaphore.h \
+          foundation/HashTree.h foundation/List.h foundation/MaxHeap.h \
+          foundation/MinHeap.h foundation/Semaphore.h \
           foundation/SpinLock.h foundation/Thread.h foundation/Vector.h \
           foundation/BitOperations.h utility/Utility.h \
           csa/CSASummary.h csa/CSAConnection.h csa/CSAFile.h
