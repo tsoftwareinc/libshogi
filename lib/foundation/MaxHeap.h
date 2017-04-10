@@ -109,7 +109,7 @@ public:
     size_t      size   (void) { return _reserve; }
 
     /// Check number of elements
-    off_t       vsize  (void) { return _values;  }
+    off_t       vsize  (void) { return (_values + 1); }
 
     /// Get value
     T           value  (size_t) const;

@@ -571,7 +571,7 @@ template <typename T, typename V>
 unsigned long HashTree<T,V>::height (void)
 {
 
-    return height;
+    return _height;
 
 }
 
@@ -584,7 +584,7 @@ template <typename T, typename V>
 unsigned long HashTree<T,V>::size (void)
 {
 
-    return size;
+    return _size;
 
 }
 
