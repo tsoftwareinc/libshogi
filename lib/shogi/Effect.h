@@ -43,6 +43,7 @@
 #define _GAME_EFFECT_H
 
 #include <Color.h>
+#include <Piece.h>
 #include <Bitboard.h>
 #include <Direction.h>
 #include <Square.h>
@@ -82,54 +83,138 @@ namespace game { namespace Effect {
 /// Initialize
 void                    initialize (void);
 
-/// KA effect
-const Bitboard &        KA         (Square::Square, const Bitboard &);
+/*
+ * Lookup tables. They are defined in Effect.cpp and declared here only so
+ * that the accessor functions below can be inlined. Use the accessors
+ * instead of touching the tables directly.
+ */
 
-/// HI effect
-const Bitboard &        HI         (Square::Square, const Bitboard &);
+/// KA effect tables
+extern Bitboard         _KAEffectT[20224  + 1];
+extern Bitboard         _KAEffectM[Square::Squares];
+extern int              _KAEffectI[Square::Squares];
 
-/// KY effect
-const Bitboard &        KY         (Color::Color, Square::Square,
-                                                    const Bitboard &);
+/// HI effect tables
+extern Bitboard         _HIEffectT[495616 + 1];
+extern Bitboard         _HIEffectM[Square::Squares];
+extern int              _HIEffectI[Square::Squares];
 
-/// BKY effect
-const Bitboard &        KB         (Square::Square, const Bitboard &);
+/// KY effect tables
+extern Bitboard         _KYEffectT[Square::Squares][Color::Colors][128];
+extern Bitboard         _KBEffectT[Square::Squares][128];
+extern Bitboard         _KWEffectT[Square::Squares][128];
 
-/// WKY effect
-const Bitboard &        KW         (Square::Square, const Bitboard &);
-
-/// Adjacent effect
-const Bitboard &        AD         (Square::Square, Piece::Piece);
-
-/// KA effect in empty board
-const Bitboard &        FK         (Square::Square);
-
-/// HI effect in empty board
-const Bitboard &        FH         (Square::Square);
-
-/// Half KA effect on empty board (right shoulder up)
-const Bitboard &        RS         (Square::Square);
-
-/// Half KA effect on empty board (falling to the right)
-const Bitboard &        FR         (Square::Square);
-
-/// Half HI horizontal
-const Bitboard &        HH         (Square::Square);
-
-/// Half HI vertical
-const Bitboard &        HV         (Square::Square);
+/// Adjacent effect table
+extern Bitboard         _ADEffectT[Square::Squares][Piece::Pieces];
 
 /// Direction mask for escaping from distant effect
-const Bitboard &        ED         (Square::Square, Direction::Direction);
+extern Bitboard         _direction[Square::Squares][Direction::Directions];
+
+/// Constant masks
+extern const Bitboard   _duodecimal[Square::Squares];
+extern const Bitboard   _octant    [Square::Squares];
+extern const Bitboard   _distant   [Square::Squares];
+extern const Bitboard   _rsup      [Square::Squares];
+extern const Bitboard   _failtor   [Square::Squares];
+extern const Bitboard   _hhorizont [Square::Squares];
+extern const Bitboard   _hvertical [Square::Squares];
+
+/// KA effect
+inline const Bitboard & KA (Square::Square sq, const Bitboard &ocp)
+{
+    return _KAEffectT[_KAEffectI[sq] + ocp.index(_KAEffectM[sq])];
+}
+
+/// HI effect
+inline const Bitboard & HI (Square::Square sq, const Bitboard &ocp)
+{
+    return _HIEffectT[_HIEffectI[sq] + ocp.index(_HIEffectM[sq])];
+}
+
+/// KY effect
+inline const Bitboard & KY (Color::Color c, Square::Square sq,
+                                              const Bitboard &ocp)
+{
+    return _KYEffectT[sq][c][(ocp.part(sq) >> Bitboard::VShift[sq]) & 0x7f];
+}
+
+/// BKY effect
+inline const Bitboard & KB (Square::Square sq, const Bitboard &ocp)
+{
+    return _KBEffectT[sq][(ocp.part(sq) >> Bitboard::VShift[sq]) & 0x7f];
+}
+
+/// WKY effect
+inline const Bitboard & KW (Square::Square sq, const Bitboard &ocp)
+{
+    return _KWEffectT[sq][(ocp.part(sq) >> Bitboard::VShift[sq]) & 0x7f];
+}
+
+/// Adjacent effect
+inline const Bitboard & AD (Square::Square sq, Piece::Piece p)
+{
+    return _ADEffectT[sq][p];
+}
+
+/// KA effect in empty board
+inline const Bitboard & FK (Square::Square sq)
+{
+    return _ADEffectT[sq][Piece::BKA];
+}
+
+/// HI effect in empty board
+inline const Bitboard & FH (Square::Square sq)
+{
+    return _ADEffectT[sq][Piece::BHI];
+}
+
+/// Half KA effect on empty board (right shoulder up)
+inline const Bitboard & RS (Square::Square sq)
+{
+    return _rsup[sq];
+}
+
+/// Half KA effect on empty board (falling to the right)
+inline const Bitboard & FR (Square::Square sq)
+{
+    return _failtor[sq];
+}
+
+/// Half HI horizontal
+inline const Bitboard & HH (Square::Square sq)
+{
+    return _hhorizont[sq];
+}
+
+/// Half HI vertical
+inline const Bitboard & HV (Square::Square sq)
+{
+    return _hvertical[sq];
+}
+
+/// Direction mask for escaping from distant effect
+inline const Bitboard & ED (Square::Square sq, Direction::Direction dr)
+{
+    return _direction[sq][dr];
+}
 
 /// Masking bitboard adjacent squares for duodecimal directions
-const Bitboard &        DU         (Square::Square);
+inline const Bitboard & DU (Square::Square sq)
+{
+    return _duodecimal[sq];
+}
 
 /// Masking bitboard adjacent squares for octant directions
-const Bitboard &        OC         (Square::Square);
+inline const Bitboard & OC (Square::Square sq)
+{
+    return _octant[sq];
+}
 
 /// Masking bitboard distant squares for octant directions
-const Bitboard &        LD         (Square::Square);
+inline const Bitboard & LD (Square::Square sq)
+{
+    return _distant[sq];
+}
 
 /* ------------------------------------------------------------------------- */
 

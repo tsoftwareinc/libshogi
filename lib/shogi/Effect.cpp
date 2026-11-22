@@ -131,7 +131,7 @@ static constexpr Bitboard   DU96(0x0000000000000000ULL, 0x000000000000a0f8ULL);
 static constexpr Bitboard   DU97(0x0000000000000000ULL, 0x00000000000141f0ULL);
 static constexpr Bitboard   DU98(0x0000000000000000ULL, 0x00000000000281e0ULL);
 static constexpr Bitboard   DU99(0x0000000000000000ULL, 0x00000000000101c0ULL);
-static constexpr Bitboard   _duodecimal [Square::Squares] = { 
+constexpr Bitboard     _duodecimal [Square::Squares] = { 
                                  DU11,  DU12,  DU13,  DU14,  DU15,
                                  DU16,  DU17,  DU18,  DU19,
                                  DU21,  DU22,  DU23,  DU24,  DU25,
@@ -235,7 +235,7 @@ static constexpr Bitboard   OC96(0x0000000000000000ULL, 0x000000000000a070ULL);
 static constexpr Bitboard   OC97(0x0000000000000000ULL, 0x00000000000140e0ULL);
 static constexpr Bitboard   OC98(0x0000000000000000ULL, 0x00000000000281c0ULL);
 static constexpr Bitboard   OC99(0x0000000000000000ULL, 0x0000000000010180ULL);
-static constexpr Bitboard   _octant    [Square::Squares] = { 
+constexpr Bitboard     _octant    [Square::Squares] = { 
                                  OC11,  OC12,  OC13,  OC14,  OC15,
                                  OC16,  OC17,  OC18,  OC19,
                                  OC21,  OC22,  OC23,  OC24,  OC25,
@@ -339,7 +339,7 @@ static constexpr Bitboard   LD96(0x2a24822108804020ULL, 0x000000000003be70ULL);
 static constexpr Bitboard   LD97(0x5409044211048040ULL, 0x0000000000037ee0ULL);
 static constexpr Bitboard   LD98(0x2812088422090280ULL, 0x000000000002ffc0ULL);
 static constexpr Bitboard   LD99(0x5024110844120501ULL, 0x000000000001ff80ULL);
-static constexpr Bitboard   _distant   [Square::Squares] = { 
+constexpr Bitboard     _distant   [Square::Squares] = { 
                                  LD11,  LD12,  LD13,  LD14,  LD15,
                                  LD16,  LD17,  LD18,  LD19,
                                  LD21,  LD22,  LD23,  LD24,  LD25,
@@ -443,7 +443,7 @@ static constexpr Bitboard   RS96(0x0200802008000000ULL, 0x0000000000000010ULL);
 static constexpr Bitboard   RS97(0x0401004010040000ULL, 0x0000000000000020ULL);
 static constexpr Bitboard   RS98(0x0802008020080200ULL, 0x0000000000000040ULL);
 static constexpr Bitboard   RS99(0x1004010040100401ULL, 0x0000000000000080ULL);
-static constexpr Bitboard   _rsup      [Square::Squares] = { 
+constexpr Bitboard     _rsup      [Square::Squares] = { 
                                  RS11,  RS12,  RS13,  RS14,  RS15,
                                  RS16,  RS17,  RS18,  RS19,
                                  RS21,  RS22,  RS23,  RS24,  RS25,
@@ -547,7 +547,7 @@ static constexpr Bitboard   FR96(0x2020000000000000ULL, 0x0000000000000040ULL);
 static constexpr Bitboard   FR97(0x4000000000000000ULL, 0x0000000000000080ULL);
 static constexpr Bitboard   FR98(0x0000000000000000ULL, 0x0000000000000100ULL);
 static constexpr Bitboard   FR99(0x0000000000000000ULL, 0x0000000000000000ULL);
-static constexpr Bitboard   _failtor   [Square::Squares] = { 
+constexpr Bitboard     _failtor   [Square::Squares] = { 
                                  FR11,  FR12,  FR13,  FR14,  FR15,
                                  FR16,  FR17,  FR18,  FR19,
                                  FR21,  FR22,  FR23,  FR24,  FR25,
@@ -651,7 +651,7 @@ static constexpr Bitboard   HH96(0x0804020100804020ULL, 0x0000000000000020ULL);
 static constexpr Bitboard   HH97(0x1008040201008040ULL, 0x0000000000000040ULL);
 static constexpr Bitboard   HH98(0x2010080402010080ULL, 0x0000000000000080ULL);
 static constexpr Bitboard   HH99(0x4020100804020100ULL, 0x0000000000000100ULL);
-static constexpr Bitboard   _hhorizont [Square::Squares] = { 
+constexpr Bitboard     _hhorizont [Square::Squares] = { 
                                  HH11,  HH12,  HH13,  HH14,  HH15,
                                  HH16,  HH17,  HH18,  HH19,
                                  HH21,  HH22,  HH23,  HH24,  HH25,
@@ -755,7 +755,7 @@ static constexpr Bitboard   HV96(0x0000000000000000ULL, 0x000000000003be00ULL);
 static constexpr Bitboard   HV97(0x0000000000000000ULL, 0x0000000000037e00ULL);
 static constexpr Bitboard   HV98(0x0000000000000000ULL, 0x000000000002fe00ULL);
 static constexpr Bitboard   HV99(0x0000000000000000ULL, 0x000000000001fe00ULL);
-static constexpr Bitboard   _hvertical [Square::Squares] = { 
+constexpr Bitboard     _hvertical [Square::Squares] = { 
                                  HV11,  HV12,  HV13,  HV14,  HV15,
                                  HV16,  HV17,  HV18,  HV19,
                                  HV21,  HV22,  HV23,  HV24,  HV25,
@@ -798,25 +798,25 @@ static constexpr Bitboard   FIL9B(0x0000000000000000ULL,
 static Bitboard             _forward[Color::Colors][Square::Ranks];
 
 // KA Effect tables
-static Bitboard             _KAEffectT[20224  + 1];
-static Bitboard             _KAEffectM[Square::Squares];
-static int                  _KAEffectI[Square::Squares];
+Bitboard                    _KAEffectT[20224  + 1];
+Bitboard                    _KAEffectM[Square::Squares];
+int                         _KAEffectI[Square::Squares];
 
 // HI Effect tables
-static Bitboard             _HIEffectT[495616 + 1];
-static Bitboard             _HIEffectM[Square::Squares];
-static int                  _HIEffectI[Square::Squares];
+Bitboard                    _HIEffectT[495616 + 1];
+Bitboard                    _HIEffectM[Square::Squares];
+int                         _HIEffectI[Square::Squares];
 
 // KY Effect table (the variation is 2^8)
-static Bitboard             _KYEffectT[Square::Squares][Color::Colors][128];
-static Bitboard             _KBEffectT[Square::Squares][128];
-static Bitboard             _KWEffectT[Square::Squares][128];
+Bitboard                    _KYEffectT[Square::Squares][Color::Colors][128];
+Bitboard                    _KBEffectT[Square::Squares][128];
+Bitboard                    _KWEffectT[Square::Squares][128];
 
 // Adjacent Effect table
-static Bitboard             _ADEffectT[Square::Squares][Piece::Pieces];
+Bitboard                    _ADEffectT[Square::Squares][Piece::Pieces];
 
 // Direction mask for escaping from distant effect
-static Bitboard             _direction[Square::Squares][Direction::Directions];
+Bitboard                    _direction[Square::Squares][Direction::Directions];
 
 /* ------------------------------------------------------------------------- */
 
@@ -1309,258 +1309,6 @@ static Bitboard _KIEffectCalc (Color::Color c, Square::Square sq)
     }
 
     return result;
-
-}
-
-
-
-/**
- * HI effect
- * @param sq square of the piece
- * @param ocp occupation
- * @return effect in Bitboard
- */
-const Bitboard & HI (Square::Square sq, const Bitboard &ocp)
-{
-
-    size_t                  index;
-
-    index = _HIEffectI[sq] + ocp.index(_HIEffectM[sq]);
-
-    return _HIEffectT[index];
-
-}
-
-
-
-/**
- * KA effect
- * @param sq square of the piece
- * @param ocp occupation
- * @return effect in Bitboard
- */
-const Bitboard & KA (Square::Square sq, const Bitboard &ocp)
-{
-
-    size_t                  index;
-
-    index = _KAEffectI[sq] + ocp.index(_KAEffectM[sq]);
-
-    return _KAEffectT[index];
-
-}
-
-
-
-/**
- * KY effect
- * @param c color of the piece
- * @param sq square of the piece
- * @param ocp occupation
- * @return effect in Bitboard
- */
-const Bitboard & KY (Color::Color c, Square::Square sq, const Bitboard &ocp)
-{
-
-    int                     index;
-
-    index = (ocp.part(sq) >> Bitboard::VShift[sq]) & 0x7f;
-
-    return _KYEffectT[sq][c][index];
-
-}
-
-
-
-/**
- * BKY effect
- * @param sq square of the piece
- * @param ocp occupation
- * @return effect in Bitboard
- */
-const Bitboard & KB (Square::Square sq, const Bitboard &ocp)
-{
-
-    int                     index;
-
-    index = (ocp.part(sq) >> Bitboard::VShift[sq]) & 0x7f;
-
-    return _KBEffectT[sq][index];
-
-}
-
-
-
-/**
- * WKY effect
- * @param sq square of the piece
- * @param ocp occupation
- * @return effect in Bitboard
- */
-const Bitboard & KW (Square::Square sq, const Bitboard &ocp)
-{
-
-    int                     index;
-
-    index = (ocp.part(sq) >> Bitboard::VShift[sq]) & 0x7f;
-
-    return _KWEffectT[sq][index];
-
-}
-
-
-
-/**
- * Adjacent effect
- * @param sq square of the piece
- * @param p piece with polarity
- * @return effect in bitboard
- */
-const Bitboard & AD (Square::Square sq, Piece::Piece p)
-{
-
-    return _ADEffectT[sq][p];
-
-}
-
-
-
-/**
- * KA effect on empty board
- * @param sq square of the piece
- * @return effect in bitboard
- */
-const Bitboard & FK (Square::Square sq)
-{
-
-    return _ADEffectT[sq][Piece::BKA];
-
-}
-
-
-
-/**
- * Half KA effect on empty board (right shoulder up)
- * @param sq square of the piece
- * @return effect in bitboard
- */
-const Bitboard & RS (Square::Square sq)
-{
-
-    return _rsup[sq];
-
-}
-
-
-
-/**
- * Half KA effect on empty board (falling to the right)
- * @param sq square of the piece
- * @return effect in bitboard
- */
-const Bitboard & FR (Square::Square sq)
-{
-
-    return _failtor[sq];
-
-}
-
-
-
-/**
- * Half HI effect on empty board (horizontal)
- * @param sq square of the piece
- * @return effect in bitboard
- */
-const Bitboard & HH (Square::Square sq)
-{
-
-    return _hhorizont[sq];
-
-}
-
-
-
-/**
- * Half HI effect on empty board (vertical)
- * @param sq square of the piece
- * @return effect in bitboard
- */
-const Bitboard & HV (Square::Square sq)
-{
-
-    return _hvertical[sq];
-
-}
-
-
-
-/**
- * HI effect on empty board
- * @param sq square of the piece
- * @return effect in bitboard
- */
-const Bitboard & FH (Square::Square sq)
-{
-
-    return _ADEffectT[sq][Piece::BHI];
-
-}
-
-
-
-/**
- * Direction mask for escaping from distant effect
- * @param sq square of pole
- * @param dr direction
- * @return direction mask
- */
-const Bitboard & ED (Square::Square sq, Direction::Direction dr)
-{
-
-    return _direction[sq][dr];
-
-}
-
-
-
-/**
- * Masking bitboard adjacent squares for duodecimal directions
- * @param sq square
- * @return the masking bitboard
- */
-const Bitboard & DU (Square::Square sq)
-{
-
-    return _duodecimal[sq];
-
-}
-
-
-
-/**
- * Masking bitboard adjacent squares for octant directions
- * @param sq square
- * @return the masking bitboard
- */
-const Bitboard & OC (Square::Square sq)
-{
-
-    return _octant[sq];
-
-}
-
-
-
-/**
- * Masking bitboard distant squares for quadrant directions
- * @param sq square
- * @return the masking bitboard
- */
-const Bitboard & LD (Square::Square sq)
-{
-
-    return _distant[sq];
 
 }
 

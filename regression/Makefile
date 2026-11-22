@@ -8,8 +8,10 @@ TLS     = $(strip $(shell grep ^TLS  ../Makefile | cut -d= -f 2))
 
 CC      = g++
 
+CFLAGS += -mpopcnt
+
 ifeq ($(BMI2),y)
-CFLAGS += -DUSE_NATIVE_PEXTINSTRUCTION
+CFLAGS += -DUSE_NATIVE_PEXTINSTRUCTION -mbmi -mbmi2
 endif
 
 ifeq ($(TLS),y)

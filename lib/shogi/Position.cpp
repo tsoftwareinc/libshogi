@@ -1922,6 +1922,11 @@ void Position::genCFstW (Array<Move::Move, Move::Max> &m)
 void Position::delChck (Array<Move::Move, Move::Max> &m)
 {
 
+    // no checking piece to capture (the bit scan below needs one)
+    if (! _chckp) {
+        return;
+    }
+
     if (_next == Color::Black) {
         delChckB(m);
     } else {

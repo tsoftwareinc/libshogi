@@ -10,9 +10,18 @@ TLS     = $(strip $(shell grep ^TLS  ../Makefile | cut -d= -f 2))
 CC      = g++
 DSFMT   = dSFMT-src-2.2.3
 
+# POPCNT was always issued by the inline assembly, so the compiler may
+# use it freely as well.
+CFLAGS += -mpopcnt
+
 ifeq ($(BMI2),y)
-CFLAGS += -DUSE_NATIVE_PEXTINSTRUCTION
+CFLAGS += -DUSE_NATIVE_PEXTINSTRUCTION -mbmi -mbmi2
 endif
+
+# Link time optimization and no semantic interposition let calls inside
+# the shared library be inlined or bound directly instead of going
+# through the PLT. They are used for the optimized builds only.
+LTO     =
 
 ifeq ($(TLS),y)
 CFLAGS += -DUSE_THREADLOCALSTORAGE
@@ -62,6 +71,7 @@ CFLAGS += -std=c++14 -Wall -Wextra -Wformat=2 -Wstrict-aliasing=2 \
           -fthreadsafe-statics -ftrapv -fsanitize=address \
           -I./ -Ifoundation -I$(DSFMT) -DDSFMT_MEXP=19937 \
           -I./csa -I./utility -I./shogi
+LTO     = -flto -fno-semantic-interposition
 LFLAGS  = -pthread -lrt
 else
 CFLAGS += -std=c++14 -Wall -Wextra -Wformat=2 -Wstrict-aliasing=2 \
@@ -71,6 +81,7 @@ CFLAGS += -std=c++14 -Wall -Wextra -Wformat=2 -Wstrict-aliasing=2 \
           -fthreadsafe-statics \
           -I./ -Ifoundation -I$(DSFMT) -DDSFMT_MEXP=19937 \
           -I./csa -I./utility -I./shogi
+LTO     = -flto -fno-semantic-interposition
 LFLAGS  = -lpthread -lrt
 endif
 endif
@@ -96,13 +107,13 @@ OBJS    = $(DSFMT)/dSFMT.o \
 all: $(LIBNAME)
 
 %.o: %.cpp $(HEADERS)
-	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) $(LTO) -fPIC -c -o $@ $<
 
 $(DSFMT)/dSFMT.o: $(DSFMT)/dSFMT.c $(DSFMT)/dSFMT.h
 	CFLAGS='-DDSFMT_MEXP=19937' make -C dSFMT-src-2.2.3/ dSFMT.o
 
 $(LIBNAME): $(HEADERS) $(OBJS)
-	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS) $(LFLAGS)
+	$(CC) $(CFLAGS) $(LTO) -fPIC -shared -Wl,-soname,$@ -o $@ $(OBJS) $(LFLAGS)
 
 clean:
 	rm -f shogi/*.o shogi/*.gch utility/*.o utility/*.gch

@@ -302,7 +302,7 @@ Vector<T> & Vector<T>::operator= (const Vector<T> &rhs)
         return *this;
     }
 
-    _values = _reserve < rhs._values ? _reserve : rhs.values;
+    _values = _reserve < rhs._values ? _reserve : rhs._values;
 
     for (size_t i = 0; i < _values; ++i) {
         _ptr[i] = rhs._ptr[i];

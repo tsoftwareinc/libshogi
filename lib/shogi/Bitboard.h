@@ -249,6 +249,139 @@ public:
 }  __attribute__ ((aligned (16)));
 
 
+
+/*
+ * The operators below are defined in the header so that the compiler can
+ * inline them. Each of them is a single 128-bit operation, and calling them
+ * out of line (through the PLT in a shared library) costs far more than the
+ * operation itself.
+ */
+
+/// Conversion to boolean
+inline Bitboard::operator bool() const
+{
+    return (m != 0);
+}
+
+/// Assignment
+inline Bitboard & Bitboard::operator= (const Bitboard &rhs)
+{
+    m  = rhs.m;
+    return *this;
+}
+
+/// AND assignment
+inline Bitboard & Bitboard::operator&= (const Bitboard &rhs)
+{
+    m &= rhs.m;
+    return *this;
+}
+
+/// OR assignment
+inline Bitboard & Bitboard::operator|= (const Bitboard &rhs)
+{
+    m |= rhs.m;
+    return *this;
+}
+
+/// XOR assignment
+inline Bitboard & Bitboard::operator^= (const Bitboard &rhs)
+{
+    m ^= rhs.m;
+    return *this;
+}
+
+/// Addition assignment (each 64-bit part is added separately)
+inline Bitboard & Bitboard::operator+= (const Bitboard &rhs)
+{
+    p[0] += rhs.p[0];
+    p[1] += rhs.p[1];
+    return *this;
+}
+
+/// Right shift assignment
+inline Bitboard & Bitboard::operator>>= (int shift)
+{
+    m >>= shift;
+    return *this;
+}
+
+/// Left shift assignment
+inline Bitboard & Bitboard::operator<<= (int shift)
+{
+    m <<= shift;
+    return *this;
+}
+
+/// AND
+inline Bitboard Bitboard::operator& (const Bitboard &rhs) const
+{
+    return Bitboard(m & rhs.m);
+}
+
+/// OR
+inline Bitboard Bitboard::operator| (const Bitboard &rhs) const
+{
+    return Bitboard(m | rhs.m);
+}
+
+/// XOR
+inline Bitboard Bitboard::operator^ (const Bitboard &rhs) const
+{
+    return Bitboard(m ^ rhs.m);
+}
+
+/// Addition (each 64-bit part is added separately)
+inline Bitboard Bitboard::operator+ (const Bitboard &rhs) const
+{
+    return (Bitboard(*this) += rhs);
+}
+
+/// Right shift
+inline Bitboard Bitboard::operator>> (int shift) const
+{
+    return Bitboard(m >> shift);
+}
+
+/// Left shift
+inline Bitboard Bitboard::operator<< (int shift) const
+{
+    return Bitboard(m << shift);
+}
+
+/// AND with a square
+inline Bitboard Bitboard::operator& (Square::Square rhs) const
+{
+    return Bitboard(m & Square[rhs].m);
+}
+
+/// OR with a square
+inline Bitboard Bitboard::operator| (Square::Square rhs) const
+{
+    return Bitboard(m | Square[rhs].m);
+}
+
+/// XOR with a square
+inline Bitboard Bitboard::operator^ (Square::Square rhs) const
+{
+    return Bitboard(m ^ Square[rhs].m);
+}
+
+/// OR assignment with a square
+inline Bitboard & Bitboard::operator|= (Square::Square rhs)
+{
+    m |= Square[rhs].m;
+    return *this;
+}
+
+/// XOR assignment with a square
+inline Bitboard & Bitboard::operator^= (Square::Square rhs)
+{
+    m ^= Square[rhs].m;
+    return *this;
+}
+
+
 /**
  * Pick a LSB of the board
  * The result won't be predictable if both p[0] and p[1] is zero.

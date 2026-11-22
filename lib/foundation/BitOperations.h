@@ -43,6 +43,9 @@
 #define _FOUNDATION_BITOPE_H
 
 #include <stdint.h>
+#if defined(USE_NATIVE_PEXTINSTRUCTION) && defined(__BMI2__)
+#include <immintrin.h>
+#endif
 
 // begin namespace 'foundation::Bitope'
 namespace foundation { namespace Bitope {
@@ -76,6 +79,13 @@ namespace foundation { namespace Bitope {
 
 /* ----------------------------- bitoperations ----------------------------- */
 
+/*
+ * The scan and count functions use compiler builtins rather than inline
+ * assembly. The compiler can then schedule them, reuse their results and
+ * pick the best instruction (TZCNT, BLSR, POPCNT ...) for the target.
+ * As before, the result of a scan is undefined when the value is zero.
+ */
+
 /**
  * Scan the given 32 bit value for LSB.
  * @param  v value to be scanned.
@@ -84,14 +94,7 @@ namespace foundation { namespace Bitope {
 inline uint32_t bsf (uint32_t v)
 {
 
-    __asm__ __volatile__ (
-    "           bsf     %0, %0      \n\t"
-    : "+r" (v)
-    :
-    : "cc"
-    );
-
-    return v;
+    return static_cast<uint32_t>(__builtin_ctz(v));
 
 }
 
@@ -105,14 +108,7 @@ inline uint32_t bsf (uint32_t v)
 inline uint32_t bsf (uint64_t v)
 {
 
-    __asm__ __volatile__ (
-    "           bsf     %0, %0      \n\t"
-    : "+r" (v)
-    :
-    : "cc"
-    );
-
-    return static_cast<uint32_t>(v);
+    return static_cast<uint32_t>(__builtin_ctzll(v));
 
 }
 
@@ -126,17 +122,10 @@ inline uint32_t bsf (uint64_t v)
 inline uint32_t bsfr (uint64_t &v)
 {
 
-    uint64_t    result;
+    uint32_t    result = static_cast<uint32_t>(__builtin_ctzll(v));
+    v &= v - 1;
 
-    __asm__ __volatile__ (
-    "           bsf     %0, %1      \n\t"
-    "           btr     %1, %0      \n\t"
-    : "+r" (v), "=r" (result)
-    :
-    : "cc"
-    );
-
-    return static_cast<uint32_t>(result);
+    return result;
 
 }
 
@@ -150,14 +139,7 @@ inline uint32_t bsfr (uint64_t &v)
 inline uint32_t bsr (uint32_t v)
 {
 
-    __asm__ __volatile__ (
-    "           bsr     %0, %0      \n\t"
-    : "+r" (v)
-    :
-    : "cc"
-    );
-
-    return v;
+    return static_cast<uint32_t>(31 ^ __builtin_clz(v));
 
 }
 
@@ -171,14 +153,7 @@ inline uint32_t bsr (uint32_t v)
 inline uint32_t bsr (uint64_t v)
 {
 
-    __asm__ __volatile__ (
-    "           bsr     %0, %0      \n\t"
-    : "+r" (v)
-    :
-    : "cc"
-    );
-
-    return static_cast<uint32_t>(v);
+    return static_cast<uint32_t>(63 ^ __builtin_clzll(v));
 
 }
 
@@ -192,17 +167,10 @@ inline uint32_t bsr (uint64_t v)
 inline uint32_t bsrr (uint64_t &v)
 {
 
-    uint64_t    result;
+    uint32_t    result = static_cast<uint32_t>(63 ^ __builtin_clzll(v));
+    v ^= (1ULL << result);
 
-    __asm__ __volatile__ (
-    "           bsr     %0, %1      \n\t"
-    "           btr     %1, %0      \n\t"
-    : "+r" (v), "=r" (result)
-    :
-    : "cc"
-    );
-
-    return static_cast<uint32_t>(result);
+    return result;
 
 }
 
@@ -210,6 +178,9 @@ inline uint32_t bsrr (uint64_t &v)
 
 /**
  * POPCNT - count bits set in 128 bits data
+ * The builtin is used when the compiler targets POPCNT (-mpopcnt or
+ * -march=...). Otherwise the builtin would become a slow library call,
+ * so the POPCNT instruction is issued directly as before.
  * @param  p1 
  * @param  p2 
  * @return number of 1-bits in p1 and p2
@@ -217,9 +188,13 @@ inline uint32_t bsrr (uint64_t &v)
 inline uint32_t popcnt (uint64_t p1, uint64_t p2)
 {
 
+#ifdef __POPCNT__
+    return static_cast<uint32_t>(__builtin_popcountll(p1) +
+                                 __builtin_popcountll(p2));
+#else
     uint64_t                result, count;
 
-    __asm__ __volatile__ (
+    __asm__ (
     "           popcnt  %2, %0      \n\t"
     "           popcnt  %3, %1      \n\t"
     "           add     %1, %0      \n\t"
@@ -229,6 +204,7 @@ inline uint32_t popcnt (uint64_t p1, uint64_t p2)
     );
 
     return static_cast<uint32_t>(result);
+#endif
 
 }
 
@@ -244,27 +220,26 @@ inline uint32_t popcnt (uint64_t p1, uint64_t p2)
 inline uint64_t pext (uint64_t v, uint64_t mask)
 {
 
-    uint64_t    result, shift, index;
+    // Plain C++ instead of inline assembly: the former assembly modified
+    // its 'mask' input operand, which the compiler was told is read-only.
+    uint64_t    result = 0;
 
-    __asm__ __volatile__ (
-    "           xor     %0, %0      \n\t" // result = 0
-    "           xor     %1, %1      \n\t" // index  = 0
-    "1:         and     %4, %4      \n\t" // loop:
-    "           je      3f          \n\t" // if (mask == 0) goto quit
-    "           bsf     %4, %2      \n\t" // shift = index of LSB of mask
-    "           bt      %2, %3      \n\t" // if (bit is set) {
-    "           jnc     2f          \n\t" //   set bit of result at index
-    "           bts     %1, %0      \n\t" // }
-    "2:         btr     %2, %4      \n\t" // reset LSB of mask 
-    "           add     $1, %1      \n\t" // index++
-    "           jmp     1b          \n\t" // goto loop
-    "3:                             \n\t" // quit:
-    : "=&r" (result), "=&r" (index), "=&r" (shift)
-    : "r" (v), "r" (mask)
-    : "cc"
-    );
+    for (uint64_t bit = 1; mask != 0; bit <<= 1) {
+        if (v & mask & (~mask + 1)) {   // LSB of mask is set in v
+            result |= bit;
+        }
+        mask &= mask - 1;               // reset LSB of mask
+    }
 
     return result;
+
+}
+#else
+#ifdef __BMI2__
+inline uint64_t pext (uint64_t v, uint64_t mask)
+{
+
+    return _pext_u64(v, mask);
 
 }
 #else
@@ -273,7 +248,7 @@ inline uint64_t pext (uint64_t v, uint64_t mask)
 
     uint64_t                result;
 
-    __asm__ __volatile__ (
+    __asm__ (
     "           pext    %2, %1, %0  \n\t"
     : "=&r" (result)
     : "r" (v), "r" (mask)
@@ -283,6 +258,7 @@ inline uint64_t pext (uint64_t v, uint64_t mask)
     return result;
 
 }
+#endif
 #endif
 
 /* ------------------------------------------------------------------------- */

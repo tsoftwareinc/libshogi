@@ -1,15 +1,37 @@
 /**
  *****************************************************************************
 
- @file       Maic.cpp
+ @file       Main.cpp
 
- @brief      Example
+ @brief      Example Shogi program built on libshogi
 
  @author     Hiroki Takada (http://wwww.tsoftware.jp/)
 
- @date       2016-12-14
+ @date       2026-11-22
 
  @version    $Id:$
+
+  A complete, single-threaded Shogi engine that shows how to use libshogi:
+
+   - search : iterative deepening alpha-beta (PVS) with a transposition
+              table, null move pruning, late move reductions, killer and
+              history move ordering and a capture-only quiescence search.
+   - eval   : material (from the library) plus king safety and the mobility
+              of the sliding pieces, computed with the library bitboards.
+   - rules  : legal moves come from Position::genMove(); the program adds
+              the pawn-drop-mate (uchifuzume) rule, repetition (sennichite)
+              and the perpetual check rule on top of it.
+
+  Modes (see usage()):
+
+     shogiprogram                         USI engine (for Shogi GUIs)
+     shogiprogram play [black|white] [s]  play against the program in a
+                                          terminal
+     shogiprogram csa <user> <pass> <host> [s]
+                                          play on a CSA protocol server
+     shogiprogram selfplay [games] [ms]   the program plays itself
+     shogiprogram bench [depth]           fixed depth search benchmark
+
 
   ----------------------------------------------------------------------------
   RELEASE NOTE :
@@ -17,1413 +39,1629 @@
    DATE          REV    REMARK
   ============= ====== =======================================================
   14th Dec 2016  0.1   Initial release
+  22nd Nov 2026  0.2   Rewritten: USI, terminal play, CSA, self-play, bench
 
  *****************************************************************************/
 
-#include <cstdlib>
 #include <unistd.h>
 
+#include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <chrono>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <iomanip>
 #include <iostream>
-#include <fstream>
-#include <string>
+#include <mutex>
 #include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include <Shogi.h>
-#include <CSAConnection.h>
-#include <CSAFile.h>
-#include <List.h>
 #include <Array.h>
-#include <Atomic.h>
-#include <SpinLock.h>
-#include <Semaphore.h>
-#include <Thread.h>
+#include <Vector.h>
+#include <CSASummary.h>
+#include <CSAConnection.h>
 
-using namespace foundation;
 using namespace game;
-using namespace Evaluation;
 
-
+namespace {
 
 /* ------------------------------ parameters ------------------------------- */
 
-/// 置換表サイズ
-static const size_t         TPSize          = 0x800000ULL;
+const char * const          EngineName      = "libshogi example 0.2";
+const char * const          EngineAuthor    = "Hiroki Takada";
 
-/// 置換表登録に関する残り深さ閾値
-static const int            TPLimit         = 3;
+const int                   MaxPly          = 128;
+const int                   MateScore       = 30000;
+const int                   MateInMaxPly    = MateScore - MaxPly;
+const int                   InfScore        = 31000;
+const int                   PerpetualScore  = 20000;
+const int                   MaxGamePlies    = 512;
 
-/// スレッド数 (物理コア数と同じにする)
-static const int            NumberOfThreads = 2;
+/// Hash keys of the library do not contain the side to move
+const uint64_t              SideKey         = 0x9e3779b97f4a7c15ULL;
 
-/// 最大思考時間
-static const time_t         ThinkingTime    = 10;
-
-/* ------------------------------------------------------------------------- */
-
-/* --------------------------- global  variables --------------------------- */
-
-/// 最大の探索深さ
-static int                  _searchDepth    = 10;
-
-/// 静止探索に入る探索深さ
-static int                  _stableDepth    = 3;
-
-/// 探索終了通知用セマフォ       (Thread -> Main  )
-template <typename T, typename V>
-Semaphore Thread<T, V>::globalSync;
-
-/// 探索終了通知用アトミック変数 (Main   -> Thread)
-static Atomic<int>          _stopSearch(0);
-
-/// 置換表
-class  TransPosition;
-static TransPosition *      _TPB            = nullptr;
-static TransPosition *      _TPW            = nullptr;
-
-/* ------------------------------------------------------------------------- */
-
-/* -------------------------- function prototypes -------------------------- */
-
-/// 置換表の初期化クリア
-static void     initTP    (void);
-static void     clearTP   (void);
-
-/// 置換表操作
-static void     recordTPB (Zobrist::key key,
-                           int depth, Eval  alpha, Eval  beta, Eval  value);
-static void     recordTPW (Zobrist::key key,
-                           int depth, Eval  alpha, Eval  beta, Eval  value);
-static bool     searchTPB (Zobrist::key key,
-                           int depth, Eval &alpha, Eval &beta, Eval &value);
-static bool     searchTPW (Zobrist::key key,
-                           int depth, Eval &alpha, Eval &beta, Eval &value);
-
-/// 探索
-static size_t   searchMax (Position &, Array<Move::Move, Move::Max> &);
-static size_t   searchMin (Position &, Array<Move::Move, Move::Max> &);
-static size_t   splitMax  (Position &, Array<Move::Move, Move::Max> &);
-static size_t   splitMin  (Position &, Array<Move::Move, Move::Max> &);
-static Eval     searchMax (Position &, Eval alpha, Eval beta, int depth);
-static Eval     searchMin (Position &, Eval alpha, Eval beta, int depth);
-static Eval     quiesMax  (Position &, Eval alpha, Eval beta, int depth);
-static Eval     quiesMin  (Position &, Eval alpha, Eval beta, int depth);
+using MoveList = foundation::Array<Move::Move, Move::Max>;
 
 /* ------------------------------------------------------------------------- */
 
 
 
-/* ------------------------- TransPosition class --------------------------- */
+/* ------------------------------- utilities ------------------------------- */
 
-/// 置換表エントリ
-class TransPosition : public SpinLockObject {
-public:
+using Clock = std::chrono::steady_clock;
 
-    TransPosition () : SpinLockObject() {}
-
-    static const uint64_t   Shift = 16;
-    static const uint64_t   Mask  = 0x0000007fffff0000ULL;
-    static uint64_t         index (uint64_t key) {
-                                return ((key & Mask) >> Shift);
-                            }
-
-    Zobrist::key            key;
-    short                   depth;
-    short                   value;
-    enum : short            {
-                                FailHigh,
-                                FailLow,
-                                Unknown,
-                                Determined
-                            } state;
-};
-
-/* ------------------------------------------------------------------------- */
-
-
-/* ----------------------------  Thread class ------------------------------ */
-
-/// 探索スレッドに渡すパラメータ
-struct threadArg {
-
-    threadArg() {}
-
-    threadArg(Position *ptr, Eval a, Eval b, int d) :
-     p(ptr), alpha(a), beta(b), depth(d)
-    {}
-
-    Position *              p;
-    Eval                    alpha;
-    Eval                    beta;
-    int                     depth;
-};
-
-/// 先手番局面を探索するスレッド
-class threadMax : public Thread<Eval, threadArg>
+int64_t nowMs (void)
 {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               Clock::now().time_since_epoch()).count();
+}
 
-public:
+/// Serializes the output of the search thread and the main thread
+std::mutex                  outputLock;
 
-    static void globalSync() {
-        Thread<Eval, threadArg>::globalSync.wait();
+void say (const std::string &line)
+{
+    std::lock_guard<std::mutex> lock(outputLock);
+    std::cout << line << std::endl;
+}
+
+/// Hash key of a position including the side to move
+uint64_t fullKey (const Position &p)
+{
+    return p.hash() ^ (p.turn() == Color::White ? SideKey : 0);
+}
+
+/// Move without the value bits the library may store in it
+Move::Move plain (Move::Move m)
+{
+    return static_cast<Move::Move>(m & Move::MoveMask);
+}
+
+bool isDrop    (Move::Move m) { return (m & Move::Drop)    != 0; }
+bool isPromote (Move::Move m) { return (m & Move::Promote) != 0; }
+
+/// Piece values used for move ordering, indexed by Piece & Neutral
+const int                   OrderValue[16] = {
+                            //  EMP   FU   KY   KE   GI   KA    HI   KI
+                                  0, 100, 200, 300, 400, 800, 1000, 500,
+                            //  OU      TO   NY   NK   NG   UM    RY
+                                10000, 500, 500, 500, 500, 1300, 1500, 0
+                            };
+
+int pieceValue (Piece::Piece p)
+{
+    return OrderValue[p & Piece::Neutral];
+}
+
+/// Captured piece of a move (EMP for none)
+Piece::Piece captured (const Position &p, Move::Move m)
+{
+    return isDrop(m) ? static_cast<Piece::Piece>(Piece::EMP)
+                     : p.square(Move::to(m));
+}
+
+/* ------------------------------------------------------------------------- */
+
+
+
+/* ------------------------- move string conversion ------------------------ */
+
+/// Square to USI notation, e.g. SQ77 -> "7g"
+std::string usiSquare (Square::Square sq)
+{
+    std::string s;
+    s += static_cast<char>('1' + Square::toFile(sq));
+    s += static_cast<char>('a' + Square::toRank(sq));
+    return s;
+}
+
+/// USI letters of the pieces in hand, indexed by fundamental piece
+const char                  UsiDrop[] = "?PLNSBRG";
+
+/// USI notation of a move, e.g. "7g7f", "8h2b+", "P*5e"
+std::string usiMove (Move::Move m)
+{
+    if (Move::isNull(m)) {
+        return "resign";
     }
-
-    threadMax () :
-        Thread<Eval, threadArg> ()
-    {}
-
-    void run (threadArg a)
-    {
-        Thread<Eval, threadArg>::run(a);
+    if (isDrop(m)) {
+        std::string s;
+        s += UsiDrop[Move::from(m)];
+        s += '*';
+        return s + usiSquare(Move::to(m));
     }
+    return usiSquare(Move::from(m)) + usiSquare(Move::to(m))
+         + (isPromote(m) ? "+" : "");
+}
 
-private:
+/// All legal moves including the minor ones (e.g. a rook not promoting)
+void allLegalMoves (Position &p, MoveList &m)
+{
+    m.setsz(0);
+    p.genMove(m);
+    p.minorMove(m);
+}
 
-    Eval _thread (threadArg a)
-    {
-        int rtn = nice(1);
-        if (rtn == -1) {
-            perror("nice()");
+/**
+ * Position::genMove() includes dropping a pawn to give mate (uchifuzume),
+ * which is illegal. Call this right after the move m was made.
+ */
+bool pawnDropMate (Position &p, Move::Move m)
+{
+    if (! isDrop(m) || Move::from(m) != Piece::FU || p.nchecks() == 0) {
+        return false;
+    }
+    MoveList r;
+    p.genMove(r);
+    return r.vsize() == 0;
+}
+
+/// Check if the move is an illegal pawn drop mate (the move is not made)
+bool illegalPawnDrop (Position &p, Move::Move m)
+{
+    if (! isDrop(m) || Move::from(m) != Piece::FU) {
+        return false;
+    }
+    auto back = p.move(m);
+    bool bad  = pawnDropMate(p, m);
+    p.undo(back);
+    return bad;
+}
+
+/// Find the given move among the legal moves
+Move::Move findLegal (Position &p, Move::Move wanted)
+{
+    MoveList m;
+    allLegalMoves(p, m);
+    for (auto mv : m) {
+        if (plain(mv) == plain(wanted)) {
+            return illegalPawnDrop(p, plain(mv)) ? Move::None : plain(mv);
         }
-        return searchMax(*a.p, a.alpha, a.beta, a.depth);
     }
+    return Move::None;
+}
 
-};
-
-/// 後手番局面を探索するスレッド
-class threadMin : public Thread<Eval, threadArg>
+/// Parse "7g" into a square, SQVD on error
+Square::Square parseUsiSquare (char f, char r)
 {
-
-public:
-
-    static void globalSync() {
-        Thread<Eval, threadArg>::globalSync.wait();
+    if (f < '1' || f > '9' || r < 'a' || r > 'i') {
+        return Square::SQVD;
     }
+    return (f - '1') * 9 + (r - 'a');
+}
 
-    threadMin () :
-        Thread<Eval, threadArg> ()
-    {}
-
-    void run (threadArg a)
-    {
-        Thread<Eval, threadArg>::run(a);
+/// Parse a USI move, returns Move::None unless it is legal
+Move::Move parseUsiMove (Position &p, const std::string &s)
+{
+    if (s.size() < 4) {
+        return Move::None;
     }
-
-private:
-
-    Eval _thread (threadArg a)
-    {
-        int rtn = nice(1);
-        if (rtn == -1) {
-            perror("nice()");
+    if (s[1] == '*') {
+        const char *c = strchr(UsiDrop + 1, s[0]);
+        auto to = parseUsiSquare(s[2], s[3]);
+        if (c == nullptr || to == Square::SQVD || s.size() != 4) {
+            return Move::None;
         }
-        return searchMin(*a.p, a.alpha, a.beta, a.depth);
+        return findLegal(p, Move::drop(static_cast<Piece::Piece>(c - UsiDrop), to));
     }
+    auto fm = parseUsiSquare(s[0], s[1]);
+    auto to = parseUsiSquare(s[2], s[3]);
+    if (fm == Square::SQVD || to == Square::SQVD) {
+        return Move::None;
+    }
+    if (s.size() == 5 && s[4] == '+') {
+        return findLegal(p, Move::promote(fm, to));
+    }
+    if (s.size() != 4) {
+        return Move::None;
+    }
+    return findLegal(p, Move::move(fm, to));
+}
 
-};
-
-// タイマースレッド
-class threadTimer : public Thread<int, time_t>
+/// Parse a CSA move ("+7776FU" or "7776FU"), Move::None unless legal
+Move::Move parseCsaMove (Position &p, std::string s)
 {
-
-public:
-
-    // 時計を見る間隔 [nsec]
-    static const long       PollingInterval = 50000000L;
-
-    // タイマースレッドの優先度 (最高)
-    static const int        Priority        = -21;
-
-    threadTimer () :
-        Thread<int, time_t> ()
-    {
-        _itval.tv_sec  = 0;
-        _itval.tv_nsec = PollingInterval;
+    if (! s.empty() && (s[0] == '+' || s[0] == '-')) {
+        s = s.substr(1);
     }
-
-    void run (time_t t)
-    {
-        // 探索終了通知用アトミック変数をリセット
-        _stopSearch.set(0);
-
-        // スレッド起動
-        Thread<int, time_t>::run(t);
+    if (s.size() < 6) {
+        return Move::None;
     }
-
-    void stop (void)
-    {
-        _stopSearch.set(1);
+    auto pc = Piece::csaToPiece(s.substr(4, 2));
+    if (pc == Piece::EMP || ! isdigit(s[0]) || ! isdigit(s[1])
+                         || ! isdigit(s[2]) || ! isdigit(s[3])) {
+        return Move::None;
     }
+    if (s[2] == '0' || s[3] == '0') {
+        return Move::None;
+    }
+    Square::Square to = (s[2] - '1') * 9 + (s[3] - '1');
+    if (s[0] == '0' && s[1] == '0') {
+        return findLegal(p, Move::drop(pc & Piece::Mask, to));
+    }
+    if (s[0] == '0' || s[1] == '0') {
+        return Move::None;
+    }
+    Square::Square fm = (s[0] - '1') * 9 + (s[1] - '1');
+    bool promote = (pc & Piece::Neutral) != (p.square(fm) & Piece::Neutral);
+    return findLegal(p, promote ? Move::promote(fm, to) : Move::move(fm, to));
+}
 
-private:
+/// Parse a move in either notation
+Move::Move parseMove (Position &p, const std::string &s)
+{
+    auto m = parseUsiMove(p, s);
+    return m != Move::None ? m : parseCsaMove(p, s);
+}
 
-    time_t                  _limit;
-    struct timespec         _itval;
-    struct timespec         _rmain;
+/* ------------------------------------------------------------------------- */
 
-    int _thread (time_t t)
-    {
 
-        // タイマー発動時間を計算
-        _limit = time(NULL) + t;
 
-        while (_limit > time(NULL)) {
-            _rmain = _itval;
-            while (nanosleep(&_rmain, &_rmain) == -1);
-            if (_stopSearch == 1) {
-                break;
+/* ------------------------------- SFEN ------------------------------------ */
+
+/// SFEN letters, indexed by Piece & Neutral
+const char * const          SfenPiece[16] = {
+                                "",   "P",  "L",  "N",  "S",  "B",  "R", "G",
+                                "K", "+P", "+L", "+N", "+S", "+B", "+R", ""
+                            };
+
+/// CSA names, indexed by Piece & Neutral
+const char * const          CsaPiece[16] = {
+                                "",   "FU", "KY", "KE", "GI", "KA", "HI", "KI",
+                                "OU", "TO", "NY", "NK", "NG", "UM", "RY", ""
+                            };
+
+/// Pieces in hand in the SFEN order
+const Piece::Piece          SfenHand[] = {
+                                Piece::HI, Piece::KA, Piece::KI, Piece::GI,
+                                Piece::KE, Piece::KY, Piece::FU
+                            };
+
+/// Current position in SFEN
+std::string toSfen (const Position &p)
+{
+    std::string s;
+    for (int r = 0; r < 9; ++r) {
+        int empty = 0;
+        for (int f = 8; f >= 0; --f) {
+            auto pc = p.square(f * 9 + r);
+            if (pc == Piece::EMP) {
+                ++empty;
+                continue;
+            }
+            if (empty) {
+                s += static_cast<char>('0' + empty);
+                empty = 0;
+            }
+            std::string n = SfenPiece[pc & Piece::Neutral];
+            if (Piece::color(pc) == Color::White) {
+                for (auto &c : n) {
+                    c = static_cast<char>(tolower(c));
+                }
+            }
+            s += n;
+        }
+        if (empty) {
+            s += static_cast<char>('0' + empty);
+        }
+        if (r != 8) {
+            s += '/';
+        }
+    }
+    s += p.turn() == Color::Black ? " b " : " w ";
+    std::string h;
+    for (auto c : {Color::Black, Color::White}) {
+        for (auto pc : SfenHand) {
+            int n = p.hand(c, pc);
+            if (n == 0) {
+                continue;
+            }
+            if (n > 1) {
+                h += std::to_string(n);
+            }
+            char l = SfenPiece[pc][0];
+            h += c == Color::Black ? l : static_cast<char>(tolower(l));
+        }
+    }
+    s += h.empty() ? "-" : h;
+    s += " " + std::to_string(static_cast<int>(p) + 1);
+    return s;
+}
+
+/// Build a CSA game summary from SFEN fields, false on a syntax error
+bool sfenToSummary (const std::string &board, const std::string &side,
+                    const std::string &hands, CSASummary &g)
+{
+    std::istringstream rows(board);
+    std::string        row;
+    int                r = 0;
+    while (std::getline(rows, row, '/')) {
+        if (r >= 9) {
+            return false;
+        }
+        std::string csa;
+        int         files    = 0;
+        bool        promoted = false;
+        for (char c : row) {
+            if (isdigit(c)) {
+                for (int i = 0; i < c - '0'; ++i) {
+                    csa += " * ";
+                }
+                files += c - '0';
+                continue;
+            }
+            if (c == '+') {
+                promoted = true;
+                continue;
+            }
+            const char *l = strchr("PLNSBRGK", toupper(c));
+            if (l == nullptr) {
+                return false;
+            }
+            // the order of the letters matches the library: FU .. OU
+            int pc = static_cast<int>(l - "PLNSBRGK") + 1;
+            if (promoted) {
+                pc |= Piece::Promoted;
+                promoted = false;
+            }
+            csa += isupper(c) ? '+' : '-';
+            csa += CsaPiece[pc];
+            ++files;
+        }
+        if (files != 9) {
+            return false;
+        }
+        g.position[static_cast<size_t>(r++)] = csa;
+    }
+    if (r != 9 || (side != "b" && side != "w")) {
+        return false;
+    }
+    g.senteHand.clear();
+    g.goteHand.clear();
+    if (hands != "-") {
+        int count = 0;
+        for (char c : hands) {
+            if (isdigit(c)) {
+                count = count * 10 + (c - '0');
+                continue;
+            }
+            const char *l = strchr("PLNSBRG", toupper(c));
+            if (l == nullptr) {
+                return false;
+            }
+            const Piece::Piece kind[] = {Piece::FU, Piece::KY, Piece::KE,
+                                         Piece::GI, Piece::KA, Piece::HI,
+                                         Piece::KI};
+            std::string &dst = isupper(c) ? g.senteHand : g.goteHand;
+            for (int i = 0; i < std::max(count, 1); ++i) {
+                dst += std::string("00") + CsaPiece[kind[l - "PLNSBRG"]];
+            }
+            count = 0;
+        }
+    }
+    g.firstPlayer = side == "b" ? "+" : "-";
+    return true;
+}
+
+/* ------------------------------------------------------------------------- */
+
+
+
+/* ------------------------------ evaluation ------------------------------- */
+
+/// Squares within two steps of each square
+Bitboard                    NearMask[Square::Squares];
+
+void initEvaluation (void)
+{
+    for (int s = 0; s < 81; ++s) {
+        Bitboard b;
+        for (int t = 0; t < 81; ++t) {
+            if (t != s && std::abs(s / 9 - t / 9) <= 2
+                       && std::abs(s % 9 - t % 9) <= 2) {
+                b |= Bitboard::Square[t];
             }
         }
+        NearMask[s] = b;
+    }
+}
 
-        // 探索終了通知用アトミック変数をセット
-        _stopSearch.set(1);
+/// King safety of color c (positive is good for c)
+int kingSafety (const Position &p, Color::Color c)
+{
+    using namespace Piece;
 
+    auto kb = p.bitboard(polar(OU, c));
+    if (! kb) {
         return 0;
+    }
+    auto k = kb.lsb();
+    auto e = Color::flip(c);
 
+    // own generals around the king
+    auto def = p.bitboard(polar(KI, c)) | p.bitboard(polar(GI, c))
+             | p.bitboard(polar(TO, c)) | p.bitboard(polar(NY, c))
+             | p.bitboard(polar(NK, c)) | p.bitboard(polar(NG, c));
+    int  nd  = static_cast<int>((def & NearMask[k]).popcnt());
+    nd       = std::min(nd, 4);
+
+    // enemy pieces (but pawns) around the king
+    auto att = p.occupied(e) & ~(p.bitboard(polar(FU, e)) |
+                                 p.bitboard(polar(OU, e)));
+    int  na  = static_cast<int>((att & NearMask[k]).popcnt());
+
+    // enemy pieces in hand can be dropped near the king
+    int  nh  = p.hand(e, FU) / 3;
+    for (auto pc : {KY, KE, GI, KI, KA, HI}) {
+        nh  += p.hand(e, pc);
     }
 
-};
+    // a king staying in its own camp is safer
+    int  rank = Square::toRank(k);
+    int  rel  = c == Color::Black ? rank : 8 - rank;
 
+    return nd * 30 - na * 40 - nh * 8 - na * nh * 6 + (rel - 6) * 15;
+}
+
+/// Mobility of the sliding pieces of color c
+int mobility (const Position &p, Color::Color c)
+{
+    using namespace Piece;
+
+    const auto &occ = p.occupied();
+    int         s   = 0;
+    for (auto pc : {KA, UM}) {
+        auto b = p.bitboard(polar(pc, c));
+        while (b) {
+            s += 2 * static_cast<int>(Effect::KA(b.pick(), occ).popcnt());
+        }
+    }
+    for (auto pc : {HI, RY}) {
+        auto b = p.bitboard(polar(pc, c));
+        while (b) {
+            s += 2 * static_cast<int>(Effect::HI(b.pick(), occ).popcnt());
+        }
+    }
+    return s;
+}
+
+/// Evaluation from the point of view of the side to move
+int evaluate (Position &p)
+{
+    int s = p.eval()                                         // material
+          + kingSafety(p, Color::Black) - kingSafety(p, Color::White)
+          + mobility  (p, Color::Black) - mobility  (p, Color::White);
+    return (p.turn() == Color::Black ? s : -s) + 20;         // tempo
+}
 
 /* ------------------------------------------------------------------------- */
 
 
 
-/* ---------------------------- implementations ---------------------------- */
+/* -------------------------- transposition table -------------------------- */
 
-/**
- * 置換表の初期化
- * 
- */
-static void initTP (void)
+enum Bound : uint8_t { BoundNone, BoundUpper, BoundLower, BoundExact };
+
+struct TTEntry {
+    uint64_t                key;
+    int16_t                 score;
+    uint16_t                move;
+    int8_t                  depth;
+    uint8_t                 bound;
+    uint8_t                 age;
+};
+
+class TransTable
 {
+public:
+    void resize (size_t mb)
+    {
+        size_t n = 1;
+        while (n * 2 * sizeof(TTEntry) <= mb * 1024 * 1024) {
+            n *= 2;
+        }
+        _table.assign(n, TTEntry());
+        _mask = n - 1;
+        clear();
+    }
 
-    _TPB = new TransPosition[TPSize];
-    _TPW = new TransPosition[TPSize];
+    void clear (void)
+    {
+        std::fill(_table.begin(), _table.end(), TTEntry());
+        _age = 0;
+    }
 
-    std::cout << "Hash Size : " 
-              << ((TPSize * sizeof(TransPosition)) >> 19) << "MiB" << std::endl;
+    void newSearch (void) { ++_age; }
 
-    clearTP();
+    const TTEntry *probe (uint64_t key) const
+    {
+        const auto &e = _table[key & _mask];
+        return e.key == key && e.bound != BoundNone ? &e : nullptr;
+    }
 
+    void store (uint64_t key, int score, Move::Move m, int depth, Bound b)
+    {
+        auto &e = _table[key & _mask];
+        if (e.key == key && depth < e.depth - 2 && b != BoundExact &&
+            e.age == _age) {
+            return;
+        }
+        if (e.key == key && m == Move::None) {
+            m = static_cast<Move::Move>(e.move);
+        }
+        e.key   = key;
+        e.score = static_cast<int16_t>(score);
+        e.move  = static_cast<uint16_t>(m);
+        e.depth = static_cast<int8_t>(std::max(-1, std::min(depth, 127)));
+        e.bound = b;
+        e.age   = _age;
+    }
+
+    int hashfull (void) const
+    {
+        int used = 0;
+        for (size_t i = 0; i < 1000 && i < _table.size(); ++i) {
+            used += _table[i].bound != BoundNone && _table[i].age == _age;
+        }
+        return used;
+    }
+
+private:
+    std::vector<TTEntry>    _table;
+    size_t                  _mask = 0;
+    uint8_t                 _age  = 0;
+};
+
+/// Mate scores are stored relative to the node, not to the root
+int scoreToTT (int s, int ply)
+{
+    return s >= MateInMaxPly ? s + ply : s <= -MateInMaxPly ? s - ply : s;
 }
 
-/**
- * 置換表のクリア
- * 
- */
-static void clearTP (void)
+int scoreFromTT (int s, int ply)
 {
-
-    for (size_t i = 0; i < TPSize; ++i) {
-        _TPB[i].key = 0;
-        _TPW[i].key = 0;
-    }
-
+    return s >= MateInMaxPly ? s - ply : s <= -MateInMaxPly ? s + ply : s;
 }
 
-/**
- * 置換表に登録 (先手)
- * @parm key   ハッシュキー
- * @parm depth 探索深さ
- * @parm alpha 下限値
- * @parm beta  上限値
- * @parm value 評価値
- */
-static void recordTPB (Zobrist::key key,
-                       int depth, Eval alpha, Eval beta, Eval value)
-{
+/* ------------------------------------------------------------------------- */
 
-    auto _tp = _TPB;
 
-    // 残り深さが少ないエントリは登録しない
-    if ((_searchDepth - depth) < TPLimit) {
-        return;
-    }
 
-    // インデックス計算
-    auto idx = TransPosition::index(key);
-
-    // Lock
-    SpinLock lock(_tp[idx]);
-
-    // 登録
-    _tp[idx].key   = key;
-    _tp[idx].depth = (short)(_searchDepth - depth);
-    _tp[idx].value = (short)value;
-    if (value >= beta) {
-        // fail-high
-        // 評価値は [value, +Infinity) の区間に存在する
-        _tp[idx].state = TransPosition::FailHigh;
-    } else
-    if (value <  alpha) {
-        // 下限が更新されなかった
-        // 評価値は (-Infinity, value] の区間に存在する
-        _tp[idx].state = TransPosition::Unknown;
-    } else {
-        // 決定された評価値
-        _tp[idx].state = TransPosition::Determined;
-    }
-
-}
+/* --------------------------------- game ---------------------------------- */
 
 /**
- * 置換表に登録 (後手)
- * @parm key   ハッシュキー
- * @parm depth 探索深さ
- * @parm alpha 下限値
- * @parm beta  上限値
- * @parm value 評価値
+ * A game: the position and the history needed by the repetition rules.
+ * keys[i] is the hash key of the i-th position and checks[i] tells if the
+ * side to move was in check there.
  */
-static void recordTPW (Zobrist::key key,
-                       int depth, Eval alpha, Eval beta, Eval value)
-{
+struct Game {
+    Position                pos;
+    std::vector<uint64_t>   keys;
+    std::vector<char>       checks;
+    std::vector<Move::Move> moves;      // as returned by Position::move()
 
-    auto _tp = _TPW;
+    Game () { reset(); }
 
-    // 残り深さが少ないエントリは登録しない
-    if ((_searchDepth - depth) < TPLimit) {
-        return;
+    void reset (void)
+    {
+        pos.init();
+        start();
     }
 
-    // インデックス計算
-    auto idx = TransPosition::index(key);
-
-    // Lock
-    SpinLock lock(_tp[idx]);
-
-    // 登録
-    _tp[idx].key   = key;
-    _tp[idx].depth = (short)(_searchDepth - depth);
-    _tp[idx].value = (short)value;
-    if (value <= alpha) {
-        // fail-low
-        // 評価値は (-Infinity, value] の区間に存在する
-        _tp[idx].state = TransPosition::FailLow;
-    } else
-    if (value >  beta ) {
-        // 上限が更新されなかった
-        // 評価値は [value, +Infinity) の区間に存在する
-        _tp[idx].state = TransPosition::Unknown;
-    } else {
-        // 決定された評価値
-        _tp[idx].state = TransPosition::Determined;
+    void start (void)
+    {
+        keys  .assign(1, fullKey(pos));
+        checks.assign(1, pos.nchecks() > 0);
+        moves .clear();
     }
 
-}
-
-/**
- * 置換表を検索 (先手)
- * @parm key   ハッシュキー
- * @parm depth 探索深さ
- * @parm alpha 下限値 (更新用)
- * @parm beta  上限値 (更新用)
- * @parm value 評価値 (更新用)
- * @return true ハッシュエントリ有、false 無し 
- */
-static bool searchTPB (Zobrist::key key,
-                       int depth, Eval &alpha, Eval &beta, Eval &value)
-{
-
-    auto _tp = _TPB;
-
-    // インデックス計算
-    auto idx = TransPosition::index(key);
-
-    // Lock
-    SpinLock lock(_tp[idx]);
-
-    // この局面のエントリか
-    if (_tp[idx].key != key ) {
-        return false;
-    }
-
-    // 探索が浅いエントリは信用できない (候補手のオーダリングには使える)
-    if (_tp[idx].depth < (_searchDepth - depth)) {
-        return false;
-    }
-
-    if (_tp[idx].state == TransPosition::Unknown) {
-        // 下限が更新されず登録されたエントリの場合、
-        // 評価値は (-Infinity, value] の区間に存在する。別コンテクスト
-        // からこの局面を参照した場合は上限を更新できる可能性がある
-        beta = min(_tp[idx].value, beta);
-        // 探索は続行
-        return false;
-    }
-
-    // 評価値は value もしくは [value, +Infinity) の区間に存在するので
-    // value >= beta の場合必ず上限値を超える (fail-high)
-    if (_tp[idx].value >= beta) {
-        value = beta;
+    bool setSfen (const std::string &board, const std::string &side,
+                  const std::string &hands)
+    {
+        CSASummary g;
+        if (! sfenToSummary(board, side, hands, g)) {
+            return false;
+        }
+        Position p(g);
+        pos = p;
+        start();
         return true;
     }
 
-    if (_tp[idx].state == TransPosition::FailHigh) {
-        // fail-high により登録されたエントリの場合、
-        // 評価値は [value, +Infinity) の区間に存在するので下限を更新
-        // できる可能性がある
-        alpha = max(_tp[idx].value, alpha);
-        // 探索は続行
-        return false;
+    void play (Move::Move m)
+    {
+        moves .push_back(pos.move(m));
+        keys  .push_back(fullKey(pos));
+        checks.push_back(pos.nchecks() > 0);
     }
 
-    // 決定された評価値を返す
-    value = _tp[idx].value;
-
-    return true;
-
-}
-
-/**
- * 置換表を検索 (後手)
- * @parm key   ハッシュキー
- * @parm depth 探索深さ
- * @parm alpha 下限値 (更新用)
- * @parm beta  上限値 (更新用)
- * @parm value 評価値 (更新用)
- * @return true ハッシュエントリ有、false 無し 
- */
-static bool searchTPW (Zobrist::key key,
-                       int depth, Eval &alpha, Eval &beta, Eval &value)
-{
-
-    auto _tp = _TPW;
-
-    // インデックス計算
-    auto idx = TransPosition::index(key);
-
-    // Lock
-    SpinLock lock(_tp[idx]);
-
-    // この局面のエントリか
-    if (_tp[idx].key != key  ) {
-        return false;
-    }
-
-    // 探索が浅いエントリは信用できない (候補手のオーダリングには使える)
-    if (_tp[idx].depth < (_searchDepth - depth)) {
-        return false;
-    }
-
-    if (_tp[idx].state == TransPosition::Unknown) {
-        // 上限が更新されず登録されたエントリの場合、
-        // 評価値は [value, +Infinity) の区間に存在する。別コンテクスト
-        // からこの局面を参照した場合は下限を更新できる可能性がある
-        alpha = max(_tp[idx].value, alpha);
-        // 探索は続行
-        return false;
-    }
-
-    // 評価値は value もしくは (-Infinity, value] の区間に存在するので
-    // value <= alpha の場合必ず下限値を下回る (fail-low)
-    if (_tp[idx].value <= alpha)  {
-        value = alpha;
+    bool takeBack (void)
+    {
+        if (moves.empty()) {
+            return false;
+        }
+        pos.undo(moves.back());
+        moves .pop_back();
+        keys  .pop_back();
+        checks.pop_back();
         return true;
     }
 
-    if (_tp[idx].state == TransPosition::FailLow) {
-        // fail-low により登録されたエントリの場合、
-        // 評価値は (-Infinity, value] の区間に存在するので上限を更新で
-        // きる可能性がある
-        beta = min(_tp[idx].value, beta);
-        // 探索は続行
-        return false;
+    /// Number of times the current position has occurred
+    int occurrences (void) const
+    {
+        int n = 0;
+        for (size_t i = keys.size() % 2 == 0 ? 1 : 0; i < keys.size(); ++i) {
+            n += keys[i] == keys.back();
+        }
+        return n;
     }
+};
 
-    // 決定された評価値を返す
-    value = _tp[idx].value;
+/* ------------------------------------------------------------------------- */
 
-    return true;
 
+
+/* -------------------------------- search --------------------------------- */
+
+struct Limits {
+    int                     depth    = MaxPly - 1;
+    int64_t                 softMs   = 0;       // don't start a new iteration
+    int64_t                 hardMs   = 0;       // abort the search
+    uint64_t                nodes    = 0;       // 0 for no limit
+    bool                    infinite = false;
+};
+
+/// Set by the USI front end to interrupt the search
+std::atomic<bool>           stopRequest(false);
+
+/// Cleared by "ponderhit" to start the clock of a pondering search
+std::atomic<bool>           pondering(false);
+std::atomic<int64_t>        searchStart(0);
+
+struct SearchResult {
+    Move::Move              best  = Move::None;
+    int                     score = 0;
+    int                     depth = 0;
+    uint64_t                nodes = 0;
+};
+
+class Searcher
+{
+public:
+    explicit Searcher (TransTable &tt) : _tt(tt) {}
+
+    /// Search the current position of the game
+    SearchResult think (const Game &game, const Limits &lim, bool verbose);
+
+private:
+    int  _search     (int alpha, int beta, int depth, int ply, bool nullOk);
+    int  _qsearch    (int alpha, int beta, int ply, int qdepth);
+    bool _repetition (int ply, int &score) const;
+    bool _illegalDrop(Move::Move m);
+    void _checkTime  (void);
+    void _push       (void);
+    void _pop        (void);
+    void _order      (MoveList &m, int *score, Move::Move ttMove, int ply);
+    void _report     (int depth, int score, int64_t elapsed);
+
+    TransTable &            _tt;
+    Position                _p;
+    Limits                  _lim;
+    bool                    _verbose  = false;
+    bool                    _aborted  = false;
+    uint64_t                _nodes    = 0;
+    int                     _seldepth = 0;
+    int                     _rootDepth = 0;
+    int                     _barrier  = 0;      // repetition can't cross it
+    Move::Move              _rootBest = Move::None;
+
+    std::vector<uint64_t>   _keys;
+    std::vector<char>       _checks;
+
+    Move::Move              _killer [MaxPly][2];
+    int                     _history[64][Square::Squares];
+    Move::Move              _pv     [MaxPly][MaxPly];
+    int                     _pvLen  [MaxPly];
+};
+
+void Searcher::_push (void)
+{
+    _keys  .push_back(fullKey(_p));
+    _checks.push_back(_p.nchecks() > 0);
+}
+
+void Searcher::_pop (void)
+{
+    _keys  .pop_back();
+    _checks.pop_back();
+}
+
+void Searcher::_checkTime (void)
+{
+    if (stopRequest) {
+        _aborted = true;
+        return;
+    }
+    if (_lim.nodes && _nodes >= _lim.nodes) {
+        _aborted = true;
+        return;
+    }
+    if (! _lim.infinite && ! pondering &&
+        nowMs() - searchStart >= _lim.hardMs) {
+        _aborted = true;
+    }
 }
 
 /**
- * 先手最善手を調べる
- * @parm p 局面
- * @parm m 候補手
- * @return 最善手のインデックス
+ * Repetition (sennichite). A repeated position is a draw unless one side
+ * has been checking all the time, in which case that side loses.
  */
-static size_t searchMax (Position &p, Array<Move::Move, Move::Max> &m)
+bool Searcher::_repetition (int ply, int &score) const
 {
-
-    size_t                  idx   = 0;
-    Eval                    alpha = -Infinity;
-    Eval                    beta  =  Infinity;
-
-    for (size_t i = 0; i < m.vsize(); ++i) {
-        // 局面を進める
-        auto back  = p.move(m[i]);
-        // 後手局面を探索
-        auto value = searchMin(p, alpha, beta, 1);
-        // 局面を戻す
-        p.undo(back);
-        // fail-high
-        if (value >= beta ) {
-            std::cout << "* " << value << " "
-                      << p.string(m[i]) << std::endl;
-            return i;
-        }
-        // 下限を更新
-        if (value >  alpha) {
-            alpha = value;
-            idx   = i;
-            std::cout << "  " << value << " "
-                      << p.string(m[i]) << std::endl;
-        }
-    }
-
-    return idx;
-
-}
-
-/**
- * 後手最善手を調べる
- * @parm p 局面
- * @parm m 候補手
- * @return 最善手のインデックス
- */
-static size_t searchMin (Position &p, Array<Move::Move, Move::Max> &m)
-{
-
-    size_t                  idx   = 0;
-    Eval                    alpha = -Infinity;
-    Eval                    beta  =  Infinity;
-
-    for (size_t i = 0; i < m.vsize(); ++i) {
-        // 局面を進める
-        auto back  = p.move(m[i]);
-        // 先手局面を探索
-        auto value = searchMax(p, alpha, beta, 1);
-        // 局面を戻す
-        p.undo(back);
-        // fail-low
-        if (value <= alpha) {
-            std::cout << "* " << value << " "
-                      << p.string(m[i]) << std::endl;
-            return i;
-        }
-        // 上限を更新
-        if (value <  beta ) {
-            beta  = value;
-            idx   = i;
-            std::cout << "  " << value << " "
-                      << p.string(m[i]) << std::endl;
-        }
-    }
-
-    return idx;
-
-}
-
-/**
- * 先手最善手を調べる (並列探索)
- * @parm p 局面
- * @parm m 候補手
- * @return 最善手のインデックス
- */
-static size_t splitMax (Position &p, Array<Move::Move, Move::Max> &m)
-{
-
-    size_t                  idx   = 0;
-    Eval                    alpha = -Infinity;
-    Eval                    beta  =  Infinity;
-
-    // 候補手の数
-    int tenum = (int)m.vsize();
-
-    // Move::Move の上位 16 bit には評価値を書き込むことができる
-    // ここではランダム探索の状態管理に使用する
-    enum {
-        NotYet,    // 未探索
-        Done       // 探索済み
-    };
-    for (decltype(auto) check : m) {
-        check = Move::setValue(NotYet, check);
-    }
-
-    // スレッド管理用データ
-    struct Thread {
-        threadMin   th;
-        int         move;
-    } th[NumberOfThreads];
-
-    // 探索中スレッド管理用リスト
-    List<struct Thread *> busy;
-
-    // 空きスレッド管理用リスト
-    List<struct Thread *> idle;
-    for (decltype(auto) t : th) {
-        idle.add(&t);
-    }
-
-    // fail-high の時には探索中のスレッドを片付けなければならない
-    // fail-high になったら特別な処理を行うためのフラグ
-    bool failhigh = false;
-
-    // 全ての候補手を探索
-    // done  : 探索済み
-    // count : 探索スレッド起動回数
-    for (int done = 0, count = 0; done < tenum; ) {
-
-        // 空きスレッドが無い場合は終了を待つ
-        // fail-high の時は探索中のスレッドを片付ける
-        while (idle.size() == 0 || (failhigh && busy.size() != 0)) {
-
-            // スレッド終了待ち
-            threadMin::globalSync();
-
-            // いずれかのスレッドが終了したので確認する
-            // List 要素の削除操作を伴う場合はイテレータを使う
-            for (auto itr = busy.begin(); itr != busy.end(); ++itr) {
-
-                auto t = *itr;
-
-                // スレッドの終了に同期を試みる
-                if (! t->th.trysync()) {
-                    // このスレッドはまだ探索中
-                    continue;
-                }
-
-                // 探索結果を取得する
-                auto value    = t->th.result();
-                // 局面データ解放
-                threadArg arg = t->th.argument();
-                delete arg.p;
-
-                // 探索中リストから削除
-                itr.del();
-                // 空きリストへ追加
-                idle.add(t);
-                // 探索済み + 1
-                ++done;
-
-                // fail-high 処理中か
-                if (failhigh) {
-                    break;
-                }
-
-                // fail-high
-                if (value >= beta ) {
-                    // スレッドに終了を通知
-                    _stopSearch.set(1);
-                    // fail-high 状態に入る
-                    failhigh = true;
-                    idx      = t->move;
-                    std::cout << "* " << value << " "
-                              << p.string(m[t->move]) << std::endl;
-                    break;
-                }
-
-                // 下限更新
-                if (value >  alpha) {
-                    alpha = value;
-                    idx   = t->move;
-                    std::cout << "  " << value << " "
-                              << p.string(m[t->move]) << std::endl;
-                }
-
-                // 終了通知 1 件に対して
-                // 片付けは 1 スレッド
-                break;
-            }
-        }
-
-        // fail-high
-        if (failhigh) {
-            return idx;
-        }
-
-        // スレッドを起動する
-        //
-
-        // 空きスレッド取得
-        auto t = idle.top();
-
-        // 全ての手について探索スレッドを起動したか
-        if (count >= tenum) {
-            // 新しく探索を開始する手はない
+    int n = static_cast<int>(_keys.size()) - 1;
+    for (int j = n - 4; j >= _barrier; j -= 2) {
+        if (_keys[static_cast<size_t>(j)] != _keys.back()) {
             continue;
         }
-        // 探索スレッド起動回数 + 1
-        ++count;
-
-        // 探索する手をランダムに決定する
-        int idx = rand() % tenum;
-        while (Move::value(m[idx]) != NotYet) {
-            ++idx;
-            if (idx >= tenum) {
-                idx = 0;
-            }
+        bool checkedUs   = true;            // the opponent kept checking
+        bool checkedThem = true;            // we kept checking
+        for (int i = j + 2; i <= n; i += 2) {
+            checkedUs   = checkedUs   && _checks[static_cast<size_t>(i)];
         }
-
-        // 局面を進める
-        auto back  = p.move(m[idx]);
-
-        // 後手番局面を探索するスレッド生成
-        threadArg arg(new Position(p), alpha, beta, 1);
-        t->th.run(arg);
-        t->move = idx;
-
-        // 局面を戻す
-        p.undo(back);
-
-        // 選択された手を探索済みに変更
-        m[idx] = Move::setValue(Done, m[idx]);
-
-        // 探索中リストに登録
-        busy.add(t);
-
+        for (int i = j + 1; i <  n; i += 2) {
+            checkedThem = checkedThem && _checks[static_cast<size_t>(i)];
+        }
+        score = checkedUs   ?  PerpetualScore - ply :
+                checkedThem ? -PerpetualScore + ply : 0;
+        return true;
     }
-
-    return idx;
-
+    return false;
 }
 
 /**
- * 後手最善手を調べる (並列探索)
- * @parm p 局面
- * @parm m 候補手
- * @return 最善手のインデックス
+ * The move was just made. Dropping a pawn to give mate is illegal.
  */
-static size_t splitMin (Position &p, Array<Move::Move, Move::Max> &m)
+bool Searcher::_illegalDrop (Move::Move m)
 {
-
-    size_t                  idx   = 0;
-    Eval                    alpha = -Infinity;
-    Eval                    beta  =  Infinity;
-
-    // 候補手の数
-    int tenum = (int)m.vsize();
-
-    // Move::Move の上位 16 bit には評価値を書き込むことができる
-    // ここではランダム探索の状態管理に使用する
-    enum {
-        NotYet,    // 未探索
-        Done       // 探索済み
-    };
-    for (decltype(auto) check : m) {
-        check = Move::setValue(NotYet, check);
-    }
-
-    // スレッド管理用データ
-    struct Threads {
-        threadMax   th;
-        int         move;
-    } th[NumberOfThreads];
-
-    // 探索中スレッド管理用リスト
-    List<struct Threads *> busy;
-
-    // 空きスレッド管理用リスト
-    List<struct Threads *> idle;
-    for (decltype(auto) t : th) {
-        idle.add(&t);
-    }
-
-    // fail-low の時には探索中のスレッドを片付けなければならない
-    // fail-low になったら特別な処理を行うためのフラグ
-    bool faillow = false;
-
-    // 全ての候補手を探索
-    // done  : 探索済み
-    // count : 探索スレッド起動回数
-    for (int done = 0, count = 0; done < tenum; ) {
-
-        // 空きスレッドが無い場合は探索中スレッドの終了を待つ
-        // fail-low 時には探索中スレッドを全て片付ける
-        while (idle.size() == 0 || (faillow && busy.size() != 0)) {
-
-            // スレッド終了待ち
-            threadMax::globalSync();
-
-            // いずれかのスレッドが終了したので確認する
-            // List 要素の削除操作を伴う場合はイテレータを使う
-            for (auto itr = busy.begin(); itr != busy.end(); ++itr) {
-
-                auto t = *itr;
-
-                // スレッドの終了に同期を試みる
-                if (! t->th.trysync()) {
-                    // このスレッドはまだ探索中
-                    continue;
-                }
-
-                // 探索結果を取得する
-                auto value    = t->th.result();
-                // 局面データ解放
-                threadArg arg = t->th.argument();
-                delete arg.p;
-
-                // 探索中リストから削除
-                itr.del();
-                // 空きリストへ追加
-                idle.add(t);
-                // 探索済み + 1
-                ++done;
-
-                // fail-low 処理中か
-                if (faillow) {
-                    break;
-                }
-
-                // fail-low
-                if (value <= alpha) {
-                    // スレッドに終了を通知
-                    _stopSearch.set(1);
-                    // fail-low 状態に入る
-                    faillow = true;
-                    idx     = t->move;
-                    std::cout << "* " << value << " "
-                              << p.string(m[t->move]) << std::endl;
-                    break;
-                }
-
-                // 上限更新
-                if (value <  beta ) {
-                    beta  = value;
-                    idx   = t->move;
-                    std::cout << "  " << value << " "
-                              << p.string(m[t->move]) << std::endl;
-                }
-
-                // 終了通知 1 件に対して
-                // 片付けは 1 スレッド
-                break;
-            }
-        }
-
-        // fail-low
-        if (faillow) {
-            return idx;
-        }
-
-        // スレッドを起動する
-        //
-
-        // 空きスレッド取得
-        auto t = idle.top();
-
-        // 全ての手について探索スレッドを起動したか
-        if (count >= tenum) {
-            // 新しく探索を開始する手は無い
-            continue;
-        }
-        // 探索スレッド起動回数 + 1
-        ++count;
-
-        // 探索する手をランダムに選択
-        int idx = rand() % tenum;
-        while (Move::value(m[idx]) != NotYet) {
-            ++idx;
-            if (idx >= tenum) {
-                idx = 0;
-            }
-        }
-
-        // 局面を進める
-        auto back  = p.move(m[idx]);
-
-        // 先手番局面を探索するスレッド開始
-        threadArg arg(new Position(p), alpha, beta, 1);
-        t->th.run(arg);
-        t->move = idx;
-
-        // 局面を戻す
-        p.undo(back);
-
-        // 選択された手を探索済みに変更
-        m[idx] = Move::setValue(Done, m[idx]);
-
-        // 探索中リストに登録
-        busy.add(t);
-
-    }
-
-    return idx;
-
+    return pawnDropMate(_p, m);
 }
 
-/**
- * 先手番局面の評価値を探索により決定する (Max)
- * @parm p     局面
- * @parm alpha 下限値
- * @parm beta  上限値
- * @parm depth 探索の深さ
- * @return 評価値
- */
-static Eval searchMax (Position &p, Eval alpha, Eval beta, int depth)
+/// Index to the history table: board piece, or 32 + piece for drops
+int historyIndex (const Position &p, Move::Move m)
 {
-
-    // 評価値の初期値
-    Eval vmax = -Infinity;
-
-    // 置換表検索
-    if (searchTPB(p.hash(), depth, alpha, beta, vmax)) {
-        return vmax;
-    }
-
-    // 終了通知があるか
-    if (_stopSearch == 1) {
-        return beta;
-    }
-
-    // 末端なので静止探索の結果を返す
-    if (depth > _stableDepth) {
-        return quiesMax(p, alpha, beta, depth); 
-    }
-
-    // 先手番の候補手 (ほぼ合法手) を生成
-    // 該当する手がなかった場合は詰み (-Infinity)
-    Array<Move::Move, Move::Max> m;
-    p.genFastB(m);
-
-    for (auto move : m) {
-
-        // 玉を取る手か
-        if (p.dustyB(move)) {
-            vmax = Infinity;
-            break;
-        }
-
-        // 局面を進める
-        auto back  = p.move(move);
-        // 後手番で探索
-        auto value = searchMin(p, max(vmax, alpha), beta, depth + 1);
-        // 局面を戻す
-        p.undo(back);
-
-        // fail-high
-        if (value >= beta) {
-            // 置換表に登録
-            recordTPB(p.hash(), depth, alpha, beta, value);
-            return beta;
-        }
-
-        // 下限更新か
-        if (value > vmax ) {
-            vmax = value;
-        }
-
-    }
-
-    // 置換表に登録
-    recordTPB(p.hash(), depth, alpha, beta, vmax);
-
-    return vmax;
-
+    return isDrop(m) ? 32 + Move::from(m) : p.square(Move::from(m));
 }
 
-/**
- * 後手番局面の評価値を探索により決定する (Min)
- * @parm p     局面
- * @parm alpha 下限値
- * @parm beta  上限値
- * @parm depth 探索の深さ
- * @return 評価値
- */
-static Eval searchMin (Position &p, Eval alpha, Eval beta, int depth)
+void Searcher::_order (MoveList &m, int *score, Move::Move ttMove, int ply)
 {
-
-    // 評価値の初期値
-    Eval vmin = Infinity;
-
-    // 置換表検索
-    if (searchTPW(p.hash(), depth, alpha, beta, vmin)) {
-        return vmin;
-    }
-
-    // 終了通知があるか
-    if (_stopSearch == 1) {
-        return alpha;
-    }
-
-    // 末端なので静止探索の結果を返す
-    if (depth > _stableDepth) {
-        return quiesMin(p, alpha, beta, depth); 
-    }
-
-    // 後手番の候補手 (ほぼ合法手) を生成
-    // 該当する手がなかった場合は詰み (Infinity)
-    Array<Move::Move, Move::Max> m;
-    p.genFastW(m);
-
-    for (auto move : m) {
-
-        // 玉を取る手か
-        if (p.dustyW(move)) {
-            vmin = -Infinity;
-            break;
-        }
-
-        // 局面を進める
-        auto back  = p.move(move);
-        // 先手番で探索
-        auto value = searchMax(p, alpha, min(vmin, beta), depth + 1);
-        // 局面を戻す
-        p.undo(back);
-
-        // fail-low
-        if (value <= alpha) {
-            // 置換表に登録
-            recordTPW(p.hash(), depth, alpha, beta, value);
-            return alpha;
-        }
-
-        // 上限更新か
-        if (value < vmin  ) {
-            vmin = value;
-        }
-
-    }
-
-    // 置換表に登録
-    recordTPW(p.hash(), depth, alpha, beta, vmin);
-
-    return vmin;
-
-}
-
-/**
- * 先手番局面の静的な評価値を探索により決定する (Max)
- * @parm p     局面
- * @parm alpha 下限値
- * @parm beta  上限値
- * @parm depth 探索の深さ
- * @return 評価値
- */
-static Eval quiesMax (Position &p, Eval alpha, Eval beta, int depth)
-{
-
-    // 評価値の初期値は静的評価値
-    // 上限が現在の静的評価値以下の場合探索しない
-    Eval vmax = p.eval();
-
-    // fail-high (standpat)
-    if (beta <= vmax) {
-        return beta;
-    }
-
-    // 置換表検索
-    if (searchTPB(p.hash(), depth, alpha, beta, vmax)) {
-        return vmax;
-    }
-
-    // 末端なので静的評価値を返す
-    // searchTPB() == false の場合 vmax は更新されていない
-    if (depth > _searchDepth) {
-        return vmax;
-    }
-
-    // 終了通知があるか
-    if (_stopSearch == 1) {
-        return vmax;
-    }
-
-    // 先手番で駒を取る手、玉手を回避する手のみを生成 (ほぼ合法手)
-    // 該当する手がなかった場合は静的評価値がこの局面の評価値となる
-    Array<Move::Move, Move::Max> m;
-    p.genCaptB(m);
-
-    for (auto move : m) {
-
-        // 玉を取る手か
-        if (p.dustyB(move)) {
-            vmax = Infinity;
-            break;
-        }
-
-        // 局面を進める
-        auto back  = p.move(move);
-        // 後手番で静止探索
-        auto value = quiesMin(p, max(vmax, alpha), beta, depth + 1);
-        // 局面を戻す
-        p.undo(back);
-
-        // fail-high
-        if (value >= beta) {
-            // 置換表に登録
-            // depth > _stableDepth なので通常探索がこのエントリを
-            // 参照することはない
-            recordTPB(p.hash(), depth, alpha, beta, value);
-            return beta;
-        }
-
-        // 下限更新か
-        if (value > vmax) {
-            vmax = value;
-        }
-
-    }
-
-    // 置換表に登録
-    // depth > _stableDepth なので通常探索がこのエントリを
-    // 参照することはない
-    recordTPB(p.hash(), depth, alpha, beta, vmax);
-
-    return vmax;
-
-}
-
-/**
- * 後手番局面の静的な評価値を探索により決定する (Min)
- * @parm p     局面
- * @parm alpha 下限値
- * @parm beta  上限値
- * @parm depth 探索の深さ
- * @return 評価値
- */
-static Eval quiesMin (Position &p, Eval alpha, Eval beta, int depth)
-{
-
-    // 評価値の初期値は静的評価値
-    // 下限が現在の静的評価値以上の場合探索しない
-    Eval vmin = p.eval();
-
-    // fail-low (standpat)
-    if (alpha >= vmin) {
-        return alpha;
-    }
-
-    // 置換表検索
-    if (searchTPW(p.hash(), depth, alpha, beta, vmin)) {
-        return vmin;
-    }
-
-    // 末端なので静的評価値を返す
-    // searchTPW() == false の場合 vmin は更新されていない
-    if (depth > _searchDepth) {
-        return vmin;
-    }
-
-    // 終了通知があるか
-    if (_stopSearch == 1) {
-        return vmin;
-    }
-
-    // 後手番で駒を取る手、玉手を回避する手のみを生成 (ほぼ合法手)
-    // 該当する手がなかった場合は静的評価値がこの局面の評価値となる
-    Array<Move::Move, Move::Max> m;
-    p.genCaptW(m);
-
-    for (auto move : m) {
-
-        // 玉を取る手か
-        if (p.dustyW(move)) {
-            vmin = -Infinity;
-            break;
-        }
-
-        // 局面を進める
-        auto back  = p.move(move);
-        // 先手番で静止探索
-        auto value = quiesMax(p, alpha, min(vmin, beta), depth + 1);
-        // 局面を戻す
-        p.undo(back);
-
-        // fail-low
-        if (value <= alpha) {
-            // 置換表に登録
-            // depth > _stableDepth なので通常探索がこのエントリを
-            // 参照することはない
-            recordTPW(p.hash(), depth, alpha, beta, value);
-            return alpha;
-        }
-
-        // 上限更新か
-        if (value < vmin) {
-            vmin = value;
-        }
-
-    }
-
-    // 置換表に登録
-    // depth > _stableDepth なので通常探索がこのエントリを
-    // 参照することはない
-    recordTPW(p.hash(), depth, alpha, beta, vmin);
-
-    return vmin;
-
-}
-
-
-
-/**
- * Main function
- * @param argc number of command options when invoked
- * @param argv strings of comannd options in array
- * @return status code reflecting normal end or error end.
- */
-int main (int argc, char *argv[])
-{
-
-    Vector<std::string>     message;
-    bool                    debug = false;
-
-    // 実行時引数を確認
-    if (argc == 2) {
-        // デバッグモード
-        debug = true;
-    } else
-    if (argc != 4) {
-        std::cerr << "Usage : "                                       << std::endl
-                  << argv[0] << "<User Name> <Password> <CSA Server>" << std::endl
-                  << argv[0] << "<User Name> <CSA File>"              << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    // 将棋ライブラリ初期化
-    Shogi::initialize();
-
-    // 駒の価値を設定
-    Position::setValue  (Value);
-    Position::handsValue(Hands);
-
-    // 置換表初期化
-    initTP();
-
-    // デバッグモード
-    if (debug) {
-        // 棋譜読み込み
-        CSAFile  k(argv[1]);
-        Position p(k.summary());
-        // 候補手作成
-        Array<Move::Move, Move::Max> move;
-        p.genMove(move);
-        // タイマースレッド起動
-        threadTimer timer;
-        timer.run(ThinkingTime);
-        // 解析
-        size_t best;
-        if (move.vsize() > 1) {
-            if (p.turn() == Color::Black) {
-                best = searchMax(p, move);
-            } else {
-                best = searchMin(p, move);
-            }
+    for (size_t i = 0; i < m.vsize(); ++i) {
+        auto mv = plain(m[i]);
+        auto cp = captured(_p, mv);
+        int  s;
+        if (mv == ttMove) {
+            s = 1 << 30;
+        } else if (cp != Piece::EMP) {
+            s = (1 << 28) + pieceValue(cp) * 16
+              - pieceValue(_p.square(Move::from(mv))) / 16;
+        } else if (isPromote(mv)) {
+            s = (1 << 27) + pieceValue(_p.square(Move::from(mv)));
+        } else if (mv == _killer[ply][0]) {
+            s = (1 << 26) + 1;
+        } else if (mv == _killer[ply][1]) {
+            s = (1 << 26);
         } else {
-            best = 0;
+            s = _history[historyIndex(_p, mv)][Move::to(mv)];
         }
-        // タイマースレッド終了
-        timer.stop();
-        timer.sync();
-        // 結果表示
-        std::cout << p.string(move[best]) << std::endl
-                  << p                    << std::endl;
-        // 終了
-        exit(EXIT_SUCCESS);
+        score[i] = s;
+    }
+}
+
+/// Move the best scored move of m[i..] to m[i]
+void pickNext (MoveList &m, int *score, size_t i)
+{
+    size_t b = i;
+    for (size_t j = i + 1; j < m.vsize(); ++j) {
+        if (score[j] > score[b]) {
+            b = j;
+        }
+    }
+    std::swap(m[i],     m[b]);
+    std::swap(score[i], score[b]);
+}
+
+int Searcher::_qsearch (int alpha, int beta, int ply, int qdepth)
+{
+    _pvLen[ply] = ply;
+    if ((++_nodes & 1023) == 0) {
+        _checkTime();
+    }
+    if (_aborted) {
+        return 0;
+    }
+    _seldepth = std::max(_seldepth, ply);
+
+    bool inCheck = _p.nchecks() > 0;
+    if (ply >= MaxPly - 1) {
+        return inCheck ? 0 : evaluate(_p);
     }
 
-    // CSA サーバへ接続
-    CSAConnection csa(argv[3]);
-    csa.connect(); 
+    int best = -InfScore;
+    int stand = 0;
+    if (! inCheck) {
+        stand = evaluate(_p);
+        if (stand >= beta) {
+            return stand;
+        }
+        alpha = std::max(alpha, stand);
+        best  = stand;
+        if (qdepth >= 10) {
+            return best;
+        }
+    }
 
-    // CSA サーバへログイン
-    csa.login(argv[1], argv[2]);
+    MoveList m;
+    _p.genMove(m);
+    int score[Move::Max];
+    _order(m, score, Move::None, ply);
 
-    // 対局待ち
+    for (size_t i = 0; i < m.vsize(); ++i) {
+        pickNext(m, score, i);
+        auto mv = plain(m[i]);
+        auto cp = captured(_p, mv);
+        if (! inCheck) {
+            if (cp == Piece::EMP) {
+                continue;
+            }
+            // a captured piece goes to the hand: it counts twice
+            if (stand + 2 * pieceValue(cp) + 200 <= alpha) {
+                continue;
+            }
+        }
+        auto back = _p.move(mv);
+        if (_illegalDrop(mv)) {
+            _p.undo(back);
+            continue;
+        }
+        _push();
+        int v = -_qsearch(-beta, -alpha, ply + 1, qdepth + 1);
+        _pop();
+        _p.undo(back);
+        if (_aborted) {
+            return 0;
+        }
+        if (v > best) {
+            best = v;
+            if (v > alpha) {
+                alpha = v;
+                if (v >= beta) {
+                    break;
+                }
+            }
+        }
+    }
+
+    // no legal move: mated (in Shogi this is a loss even without check)
+    if (best == -InfScore) {
+        return -MateScore + ply;
+    }
+    return best;
+}
+
+int Searcher::_search (int alpha, int beta, int depth, int ply, bool nullOk)
+{
+    if (depth <= 0) {
+        return _qsearch(alpha, beta, ply, 0);
+    }
+
+    _pvLen[ply] = ply;
+    if ((++_nodes & 1023) == 0) {
+        _checkTime();
+    }
+    if (_aborted) {
+        return 0;
+    }
+
+    bool pvNode = beta - alpha > 1;
+    if (ply > 0) {
+        int rep;
+        if (_repetition(ply, rep)) {
+            return rep;
+        }
+        // mate distance pruning
+        alpha = std::max(alpha, -MateScore + ply);
+        beta  = std::min(beta,   MateScore - ply - 1);
+        if (alpha >= beta) {
+            return alpha;
+        }
+    }
+    if (ply >= MaxPly - 1) {
+        return evaluate(_p);
+    }
+
+    // transposition table
+    uint64_t   key    = _keys.back();
+    Move::Move ttMove = Move::None;
+    if (auto e = _tt.probe(key)) {
+        ttMove = static_cast<Move::Move>(e->move);
+        int s  = scoreFromTT(e->score, ply);
+        if (! pvNode && e->depth >= depth &&
+            (e->bound == BoundExact                ||
+            (e->bound == BoundLower && s >= beta ) ||
+            (e->bound == BoundUpper && s <= alpha))) {
+            return s;
+        }
+    }
+
+    bool inCheck    = _p.nchecks() > 0;
+    int  staticEval = inCheck ? -InfScore : evaluate(_p);
+
+    // reverse futility pruning
+    if (! pvNode && ! inCheck && depth <= 3 &&
+        std::abs(beta) < MateInMaxPly && staticEval - 150 * depth >= beta) {
+        return staticEval;
+    }
+
+    // null move pruning
+    if (! pvNode && nullOk && ! inCheck && depth >= 3 &&
+        staticEval >= beta && std::abs(beta) < MateInMaxPly) {
+        auto turn    = _p.turn();
+        int  barrier = _barrier;
+        _p.turn(Color::flip(turn));
+        _push();
+        _barrier     = static_cast<int>(_keys.size()) - 1;
+        int R        = 2 + depth / 4;
+        int v        = -_search(-beta, -beta + 1, depth - 1 - R, ply + 1, false);
+        _barrier     = barrier;
+        _pop();
+        _p.turn(turn);
+        if (_aborted) {
+            return 0;
+        }
+        if (v >= beta) {
+            return v >= MateInMaxPly ? beta : v;
+        }
+    }
+
+    MoveList m;
+    _p.genMove(m);
+    int score[Move::Max];
+    _order(m, score, ttMove, ply);
+
+    int        best     = -InfScore;
+    int        oldAlpha = alpha;
+    Move::Move bestMove = Move::None;
+    int        legal    = 0;
+
+    for (size_t i = 0; i < m.vsize(); ++i) {
+        pickNext(m, score, i);
+        auto mv    = plain(m[i]);
+        bool quiet = captured(_p, mv) == Piece::EMP && ! isPromote(mv);
+
+        auto back  = _p.move(mv);
+        if (_illegalDrop(mv)) {
+            _p.undo(back);
+            continue;
+        }
+        ++legal;
+        bool givesCheck = _p.nchecks() > 0;
+
+        // futility pruning of quiet moves near the leaves
+        if (quiet && ! inCheck && ! givesCheck && legal > 1 && depth <= 2 &&
+            best > -MateInMaxPly && staticEval + 200 * depth <= alpha) {
+            _p.undo(back);
+            continue;
+        }
+
+        _push();
+        int ext      = givesCheck && ply + depth < 2 * _rootDepth ? 1 : 0;
+        int newDepth = depth - 1 + ext;
+        int v;
+        if (legal == 1) {
+            v = -_search(-beta, -alpha, newDepth, ply + 1, true);
+        } else {
+            // late move reductions
+            int R = 0;
+            if (quiet && depth >= 3 && legal > 3 && ! inCheck && ! givesCheck) {
+                R = 1 + (legal > 10) + (depth > 6);
+            }
+            v = -_search(-alpha - 1, -alpha, newDepth - R, ply + 1, true);
+            if (v > alpha && R > 0) {
+                v = -_search(-alpha - 1, -alpha, newDepth, ply + 1, true);
+            }
+            if (v > alpha && v < beta) {
+                v = -_search(-beta, -alpha, newDepth, ply + 1, true);
+            }
+        }
+        _pop();
+        _p.undo(back);
+        if (_aborted) {
+            return 0;
+        }
+
+        if (v > best) {
+            best = v;
+            if (v > alpha) {
+                alpha    = v;
+                bestMove = mv;
+                // principal variation
+                _pv[ply][ply] = mv;
+                for (int j = ply + 1; j < _pvLen[ply + 1]; ++j) {
+                    _pv[ply][j] = _pv[ply + 1][j];
+                }
+                _pvLen[ply] = std::max(_pvLen[ply + 1], ply + 1);
+                if (ply == 0) {
+                    _rootBest = mv;
+                }
+                if (v >= beta) {
+                    if (quiet) {
+                        if (_killer[ply][0] != mv) {
+                            _killer[ply][1] = _killer[ply][0];
+                            _killer[ply][0] = mv;
+                        }
+                        int &h = _history[historyIndex(_p, mv)][Move::to(mv)];
+                        h = std::min(h + depth * depth, 1 << 20);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    if (legal == 0) {
+        return -MateScore + ply;            // no legal move: lost
+    }
+    if (best == -InfScore) {
+        best = alpha;                       // everything was pruned
+    }
+
+    Bound b = best >= beta ? BoundLower :
+              best > oldAlpha ? BoundExact : BoundUpper;
+    _tt.store(key, scoreToTT(best, ply), bestMove, depth, b);
+    return best;
+}
+
+void Searcher::_report (int depth, int score, int64_t elapsed)
+{
+    if (! _verbose) {
+        return;
+    }
+    std::ostringstream s;
+    s << "info depth " << depth << " seldepth " << _seldepth;
+    if (std::abs(score) >= MateInMaxPly) {
+        int plies = MateScore - std::abs(score);
+        s << " score mate " << (score > 0 ? plies : -plies);
+    } else {
+        s << " score cp " << score;
+    }
+    s << " nodes " << _nodes
+      << " nps "   << (_nodes * 1000 / static_cast<uint64_t>(std::max<int64_t>(elapsed, 1)))
+      << " time "  << elapsed
+      << " hashfull " << _tt.hashfull()
+      << " pv";
+    for (int i = 0; i < _pvLen[0]; ++i) {
+        s << " " << usiMove(_pv[0][i]);
+    }
+    say(s.str());
+}
+
+SearchResult Searcher::think (const Game &game, const Limits &lim, bool verbose)
+{
+    SearchResult r;
+    _p        = game.pos;
+    _lim      = lim;
+    _verbose  = verbose;
+    _aborted  = false;
+    _nodes    = 0;
+    _seldepth = 0;
+    _barrier  = 0;
+    _keys     = game.keys;
+    _checks   = game.checks;
+    memset(_killer,  0, sizeof(_killer));
+    memset(_history, 0, sizeof(_history));
+    _tt.newSearch();
+
+    // legal root moves
+    MoveList root;
+    _p.genMove(root);
+    std::vector<Move::Move> legal;
+    for (auto mv : root) {
+        auto back = _p.move(plain(mv));
+        if (! _illegalDrop(plain(mv))) {
+            legal.push_back(plain(mv));
+        }
+        _p.undo(back);
+    }
+    if (legal.empty()) {
+        r.score = -MateScore;
+        return r;                           // lost: resign
+    }
+    r.best = legal[0];
+
+    // with only one legal move there is nothing to think about
+    int maxDepth = legal.size() == 1 ? 0 : lim.depth;
+
+    int score = 0;
+    for (int depth = 1; depth <= maxDepth; ++depth) {
+        _rootDepth = depth;
+        _rootBest  = Move::None;
+        _seldepth  = 0;
+
+        // aspiration window
+        int delta = 60;
+        int alpha = depth >= 4 ? std::max(score - delta, -InfScore) : -InfScore;
+        int beta  = depth >= 4 ? std::min(score + delta,  InfScore) :  InfScore;
+        int v;
+        while (true) {
+            v = _search(alpha, beta, depth, 0, false);
+            if (_aborted) {
+                break;
+            }
+            if (v <= alpha) {
+                alpha = std::max(v - delta, -InfScore);
+            } else if (v >= beta) {
+                beta  = std::min(v + delta,  InfScore);
+            } else {
+                break;
+            }
+            delta *= 3;
+        }
+
+        // a move searched completely in an aborted iteration is usable
+        if (_rootBest != Move::None) {
+            r.best = _rootBest;
+        }
+        if (_aborted) {
+            break;
+        }
+
+        score   = v;
+        r.score = v;
+        r.depth = depth;
+        int64_t elapsed = nowMs() - searchStart;
+        _report(depth, v, elapsed);
+
+        if (! lim.infinite && ! pondering) {
+            if (elapsed >= lim.softMs) {
+                break;
+            }
+            if (std::abs(v) >= MateInMaxPly && depth > MateScore - std::abs(v)) {
+                break;
+            }
+        }
+    }
+
+    // wait for "stop" or "ponderhit" instead of returning early
+    while ((lim.infinite || pondering) && ! stopRequest) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    r.nodes = _nodes;
+    return r;
+}
+
+/// Time budget from the clock (all in milliseconds)
+Limits timeLimits (int64_t time, int64_t inc, int64_t byoyomi, int64_t margin)
+{
+    Limits l;
+    int64_t total = time + byoyomi + inc - margin;
+    int64_t soft  = time / 40 + inc * 9 / 10 + byoyomi - margin;
+    int64_t hard  = time / 8  + inc + byoyomi - margin;
+    hard   = std::max<int64_t>(std::min(hard, total), 10);
+    soft   = std::max<int64_t>(std::min(soft, hard), 10);
+    // with byoyomi only, the time is lost unless used
+    if (time <= 0 && byoyomi > 0) {
+        soft = hard;
+    }
+    l.softMs = soft * 6 / 10;
+    l.hardMs = hard;
+    return l;
+}
+
+/// Fixed time per move
+Limits fixedTime (int64_t ms)
+{
+    Limits l;
+    l.softMs = ms;
+    l.hardMs = ms;
+    return l;
+}
+
+/* ------------------------------------------------------------------------- */
+
+
+
+/* ------------------------------ USI engine ------------------------------- */
+
+class UsiEngine
+{
+public:
+    UsiEngine () : _searcher(_tt) { _tt.resize(_hashMb); }
+    ~UsiEngine () { _stop(); }
+
+    void run (void);
+
+private:
+    void _stop     (void);
+    void _position (std::istringstream &is);
+    void _go       (std::istringstream &is);
+    void _option   (std::istringstream &is);
+
+    TransTable              _tt;
+    Searcher                _searcher;
+    Game                    _game;
+    std::thread             _thread;
+    size_t                  _hashMb   = 64;
+    int64_t                 _margin   = 300;
+    bool                    _hashDirty = false;
+};
+
+void UsiEngine::_stop (void)
+{
+    if (_thread.joinable()) {
+        stopRequest = true;
+        _thread.join();
+    }
+    stopRequest = false;
+    pondering   = false;
+}
+
+void UsiEngine::_option (std::istringstream &is)
+{
+    std::string token, name, value;
+    is >> token;                            // "name"
+    while (is >> token && token != "value") {
+        name += (name.empty() ? "" : " ") + token;
+    }
+    is >> value;
+    if (name == "USI_Hash") {
+        _hashMb    = static_cast<size_t>(std::max(1, atoi(value.c_str())));
+        _hashDirty = true;
+    } else if (name == "NetworkDelay") {
+        _margin = std::max(0, atoi(value.c_str()));
+    }
+}
+
+void UsiEngine::_position (std::istringstream &is)
+{
+    std::string token;
+    is >> token;
+    if (token == "startpos") {
+        _game.reset();
+        is >> token;                        // "moves" if any
+    } else if (token == "sfen") {
+        std::string board, side, hands, number;
+        is >> board >> side >> hands >> number;
+        if (! _game.setSfen(board, side, hands)) {
+            say("info string invalid sfen");
+            _game.reset();
+            return;
+        }
+        is >> token;                        // "moves" if any
+    }
+    while (is >> token) {
+        auto m = parseUsiMove(_game.pos, token);
+        if (m == Move::None) {
+            say("info string illegal move " + token);
+            return;
+        }
+        _game.play(m);
+    }
+}
+
+void UsiEngine::_go (std::istringstream &is)
+{
+    int64_t     time[2] = {0, 0}, inc[2] = {0, 0};
+    int64_t     byoyomi = 0, movetime = 0;
+    Limits      lim;
+    bool        ponder  = false;
+    std::string token;
+    while (is >> token) {
+        if      (token == "btime")    { is >> time[Color::Black]; }
+        else if (token == "wtime")    { is >> time[Color::White]; }
+        else if (token == "binc")     { is >> inc [Color::Black]; }
+        else if (token == "winc")     { is >> inc [Color::White]; }
+        else if (token == "byoyomi")  { is >> byoyomi;            }
+        else if (token == "movetime") { is >> movetime;           }
+        else if (token == "depth")    { is >> lim.depth; lim.infinite = false; }
+        else if (token == "nodes")    { is >> lim.nodes;          }
+        else if (token == "infinite") { lim.infinite = true;      }
+        else if (token == "ponder")   { ponder = true;            }
+        else if (token == "mate")     {
+            say("checkmate notimplemented");
+            return;
+        }
+    }
+
+    auto us = _game.pos.turn();
+    if (! lim.infinite) {
+        Limits t = movetime > 0 ? fixedTime(std::max<int64_t>(movetime - _margin, 10))
+                 : time[us] || inc[us] || byoyomi
+                            ? timeLimits(time[us], inc[us], byoyomi, _margin)
+                            : fixedTime(lim.depth < MaxPly - 1 || lim.nodes
+                                        ? INT64_MAX / 2 : 5000);
+        lim.softMs = t.softMs;
+        lim.hardMs = t.hardMs;
+    }
+    lim.depth = std::max(1, std::min(lim.depth, MaxPly - 1));
+
+    if (_hashDirty) {
+        _tt.resize(_hashMb);
+        _hashDirty = false;
+    }
+
+    stopRequest = false;
+    pondering   = ponder;
+    searchStart = nowMs();
+    Game game   = _game;
+    _thread = std::thread([this, game, lim] {
+        auto r = _searcher.think(game, lim, true);
+        std::string line = "bestmove " + usiMove(r.best);
+        say(line);
+    });
+}
+
+void UsiEngine::run (void)
+{
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        std::istringstream is(line);
+        std::string        cmd;
+        is >> cmd;
+        if (cmd == "usi") {
+            say(std::string("id name ")   + EngineName);
+            say(std::string("id author ") + EngineAuthor);
+            say("option name USI_Hash type spin default 64 min 1 max 4096");
+            say("option name USI_Ponder type check default false");
+            say("option name NetworkDelay type spin default 300 min 0 max 10000");
+            say("usiok");
+        } else if (cmd == "isready") {
+            _stop();
+            if (_hashDirty) {
+                _tt.resize(_hashMb);
+                _hashDirty = false;
+            }
+            say("readyok");
+        } else if (cmd == "setoption") {
+            _option(is);
+        } else if (cmd == "usinewgame") {
+            _stop();
+            _tt.clear();
+        } else if (cmd == "position") {
+            _stop();
+            _position(is);
+        } else if (cmd == "go") {
+            _stop();
+            _go(is);
+        } else if (cmd == "stop") {
+            _stop();
+        } else if (cmd == "ponderhit") {
+            searchStart = nowMs();
+            pondering   = false;
+        } else if (cmd == "gameover") {
+            _stop();
+        } else if (cmd == "quit") {
+            break;
+        } else if (cmd == "d" || cmd == "show") {
+            // not USI: show the position for debugging
+            std::lock_guard<std::mutex> lock(outputLock);
+            std::cout << _game.pos << toSfen(_game.pos) << std::endl;
+        }
+    }
+    _stop();
+}
+
+/* ------------------------------------------------------------------------- */
+
+
+
+/* --------------------------- terminal play ------------------------------- */
+
+/// Result of a game from the point of view of the side to move
+enum class Outcome { None, Lost, Won, Draw };
+
+/// Check if the game is over at the current position
+Outcome gameOver (Game &g)
+{
+    MoveList m;
+    g.pos.genMove(m);
+    int legal = 0;
+    for (auto mv : m) {
+        legal += ! illegalPawnDrop(g.pos, plain(mv));
+    }
+    if (legal == 0) {
+        return Outcome::Lost;
+    }
+    if (g.occurrences() >= 4) {
+        // perpetual check: the side that kept checking loses
+        size_t n = g.keys.size() - 1, j = n;
+        while (j >= 2 && (j -= 2, g.keys[j] != g.keys[n])) {}
+        bool checkedUs = true, checkedThem = true;
+        for (size_t i = j + 2; i <= n; i += 2) checkedUs   = checkedUs   && g.checks[i];
+        for (size_t i = j + 1; i <  n; i += 2) checkedThem = checkedThem && g.checks[i];
+        return checkedUs ? Outcome::Won : checkedThem ? Outcome::Lost : Outcome::Draw;
+    }
+    if (g.moves.size() >= MaxGamePlies) {
+        return Outcome::Draw;
+    }
+    return Outcome::None;
+}
+
+const char * colorName (Color::Color c)
+{
+    return c == Color::Black ? "Black (Sente)" : "White (Gote)";
+}
+
+void printHelp (void)
+{
+    std::cout
+        << "Enter a move in USI (7g7f, 8h2b+, P*5e) or CSA (7776FU) notation.\n"
+        << "Commands: moves  - list the legal moves\n"
+        << "          undo   - take back your last move\n"
+        << "          hint   - let the program suggest a move\n"
+        << "          sfen   - print the position in SFEN\n"
+        << "          resign - give up\n"
+        << "          quit   - leave the program\n";
+}
+
+int playMode (Color::Color human, int64_t ms)
+{
+    TransTable tt;
+    tt.resize(64);
+    Searcher   searcher(tt);
+    Game       g;
+
+    std::cout << "You play " << colorName(human) << ". The program thinks "
+              << ms / 1000.0 << " s per move. Type 'help' for help.\n";
+
+    while (true) {
+        std::cout << g.pos;
+        auto over = gameOver(g);
+        if (over != Outcome::None) {
+            auto mover = g.pos.turn();
+            if (over == Outcome::Draw) {
+                std::cout << "Draw (repetition or move limit).\n";
+            } else {
+                auto winner = over == Outcome::Won ? mover : Color::flip(mover);
+                std::cout << colorName(winner) << " wins.\n";
+            }
+            return EXIT_SUCCESS;
+        }
+
+        if (g.pos.turn() != human) {
+            std::cout << "Thinking..." << std::endl;
+            searchStart = nowMs();
+            auto r = searcher.think(g, fixedTime(ms), false);
+            std::cout << "Program plays " << usiMove(r.best) << " ("
+                      << g.pos.string(r.best) << "), eval " << r.score
+                      << ", depth " << r.depth << "\n\n";
+            g.play(r.best);
+            continue;
+        }
+
+        std::cout << colorName(human) << " to move" << (g.pos.nchecks() ? " (check!)" : "")
+                  << "> " << std::flush;
+        std::string line;
+        if (! std::getline(std::cin, line)) {
+            return EXIT_SUCCESS;
+        }
+        std::istringstream is(line);
+        std::string        cmd;
+        if (! (is >> cmd)) {
+            continue;
+        }
+        if (cmd == "quit" || cmd == "exit") {
+            return EXIT_SUCCESS;
+        } else if (cmd == "help" || cmd == "?") {
+            printHelp();
+        } else if (cmd == "resign") {
+            std::cout << colorName(Color::flip(human)) << " wins.\n";
+            return EXIT_SUCCESS;
+        } else if (cmd == "sfen") {
+            std::cout << "sfen " << toSfen(g.pos) << "\n";
+        } else if (cmd == "undo") {
+            if (g.moves.size() >= 2) {
+                g.takeBack();
+                g.takeBack();
+            } else {
+                std::cout << "Nothing to take back.\n";
+            }
+        } else if (cmd == "moves") {
+            MoveList m;
+            allLegalMoves(g.pos, m);
+            for (auto mv : m) {
+                std::cout << usiMove(mv) << " ";
+            }
+            std::cout << "\n";
+        } else if (cmd == "hint") {
+            searchStart = nowMs();
+            auto r = searcher.think(g, fixedTime(ms / 2), false);
+            std::cout << "Hint: " << usiMove(r.best) << " ("
+                      << g.pos.string(r.best) << ")\n";
+        } else {
+            auto m = parseMove(g.pos, cmd);
+            if (m == Move::None) {
+                std::cout << "Illegal move or unknown command: " << cmd << "\n";
+                continue;
+            }
+            std::cout << "\n";
+            g.play(m);
+        }
+    }
+}
+
+/* ------------------------------------------------------------------------- */
+
+
+
+/* -------------------------- CSA server client ---------------------------- */
+
+int csaMode (const std::string &user, const std::string &pass,
+             const std::string &host, int64_t ms)
+{
+    TransTable tt;
+    tt.resize(256);
+    Searcher   searcher(tt);
+
+    CSAConnection csa(host);
+    csa.connect();
+    csa.login(user, pass);
     CSASummary summary = csa.newGame();
-
-    // 対局受諾
     if (! csa.accept()) {
-        std::cerr << "拒否されました" << std::endl;
-        exit(EXIT_FAILURE);
+        std::cerr << "The game was rejected." << std::endl;
+        return EXIT_FAILURE;
     }
 
-    // 局面のインスタンスを作成
-    Position p(summary);
+    Game g;
+    Position start(summary);
+    g.pos = start;
+    g.start();
+    for (auto m : summary.sequence) {
+        auto mv = parseCsaMove(g.pos, m.move);
+        if (mv != Move::None) {
+            g.play(mv);
+        }
+    }
+    auto myturn = Position::myTurn(summary);
 
-    // メッセージ受信用
-    std::cout << p << std::endl;
-
-    // プログラムの手番を確認
-    Color::Color myturn = Position::myTurn(summary);
-
-    while (1) {
-
-        // プログラムの手番かどうか
-        if (p.turn() == myturn) {
-
-            // プログラムの手番
-
-            // 候補手作成
-            Array<Move::Move, Move::Max> move;
-            p.genMove(move);
-
-            // 詰み確認 - 指せる手がない場合は詰み
-            if (move.vsize() == 0) {
-                // 投了
+    foundation::Vector<std::string> message;
+    while (true) {
+        std::cout << g.pos << std::endl;
+        if (g.pos.turn() == myturn) {
+            searchStart = nowMs();
+            auto r = searcher.think(g, fixedTime(ms), false);
+            if (r.best == Move::None) {
                 csa.resign();
                 break;
             }
-
-            // タイマースレッド起動
-            threadTimer timer;
-            timer.run(ThinkingTime);
-
-#ifdef _RANDOM_PLAY
-            // ランダムに手を選択する
-            // 
-            int best = rand() % (int)move.vsize();
-#else
-            // 探索の結果が最も良い手を選択する
-            // 
-            size_t best;
-            if (move.vsize() > 1) {
-                if (myturn == Color::Black) {
-                    best = splitMax(p, move);
-                } else {
-                    best = splitMin(p, move);
-                }
-            } else {
-                best = 0;
-            }
-#endif
-
-            // 指し手送信
-            csa.send(p.string(move[best]));
-
-            // タイマースレッド終了
-            timer.stop();
-            timer.sync();
-
-            // 局面を進める
-            p.move(move[best]);
-
-        } else {
-
-            // 相手の手番
-
-            // 相手の手を待つ
-            csa.receive(message);
-
-            // 先頭文字が '+' '-' でないときは指し手ではない
-            if (message[0][0] != '+' && message[0][0] != '-') {
-                // 送信されてきたメッセージを表示
-                for (auto l : message) {
-                    std::cout << l << std::endl;
-                }
-                break;
-            }
-
-            // プログラムの手はスキップ
-            const char turnchk[] = {'+', '-'};
-            if (turnchk[myturn] == message[0][0]) {
-                continue;
-            }
-
-            // 相手の手を表示
-            std::cout << message[0] << std::endl;
-
-            // 局面を進める
-            p.move(message[0]);
-
+            csa.send(g.pos.string(r.best));
+            g.play(r.best);
+            continue;
         }
-
-        // 現局面を表示
-        std::cout << p << std::endl;
+        csa.receive(message);
+        if (message.vsize() == 0 ||
+            (message[0][0] != '+' && message[0][0] != '-')) {
+            for (auto l : message) {
+                std::cout << l << std::endl;
+            }
+            break;
+        }
+        // the server echoes our moves
+        if ((message[0][0] == '+') == (myturn == Color::Black)) {
+            continue;
+        }
+        auto mv = parseCsaMove(g.pos, message[0].substr(0, 7));
+        if (mv == Move::None) {
+            std::cerr << "Unexpected move: " << message[0] << std::endl;
+            break;
+        }
+        g.play(mv);
     }
-
-    // メッセージを全て受信
     while (csa.message()) {
         csa.receive(message);
         if (message.vsize() == 0) {
@@ -1432,17 +1670,159 @@ int main (int argc, char *argv[])
         for (auto l : message) {
             std::cout << l << std::endl;
         }
-    } 
-
-    // 棋譜ファイルの書き込み
+    }
     csa.write("kifu.csa");
-
-    // ログアウト
     csa.logout();
-
-    // 通信終了
     csa.close();
+    return EXIT_SUCCESS;
+}
 
-    exit(EXIT_SUCCESS);
+/* ------------------------------------------------------------------------- */
 
+
+
+/* ------------------------- self play and bench --------------------------- */
+
+int selfPlayMode (int games, int64_t ms)
+{
+    TransTable tt;
+    tt.resize(64);
+    Searcher   searcher(tt);
+    int        wins[2] = {0, 0}, draws = 0;
+
+    for (int n = 0; n < games; ++n) {
+        Game g;
+        tt.clear();
+        Outcome over;
+        while ((over = gameOver(g)) == Outcome::None) {
+            searchStart = nowMs();
+            auto r = searcher.think(g, fixedTime(ms), false);
+            if (findLegal(g.pos, r.best) == Move::None) {
+                std::cerr << "BUG: illegal move " << usiMove(r.best)
+                          << " in " << toSfen(g.pos) << std::endl;
+                return EXIT_FAILURE;
+            }
+            g.play(r.best);
+        }
+        std::string result;
+        if (over == Outcome::Draw) {
+            ++draws;
+            result = "draw";
+        } else {
+            auto winner = over == Outcome::Won ? g.pos.turn()
+                                               : Color::flip(g.pos.turn());
+            ++wins[winner];
+            result = winner == Color::Black ? "black wins" : "white wins";
+        }
+        std::cout << "game " << n + 1 << ": " << result << " in "
+                  << g.moves.size() << " plies" << std::endl;
+    }
+    std::cout << "black " << wins[Color::Black] << ", white "
+              << wins[Color::White] << ", draws " << draws << std::endl;
+    return EXIT_SUCCESS;
+}
+
+int benchMode (int depth)
+{
+    const char * const positions[] = {
+        "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
+        "lnsgk2nl/1r4gs1/p1pppp1pp/1p4p2/7P1/2P6/PP1PPPP1P/1SG4R1/LN2KGSNL b Bb 17",
+        "ln1g3nl/1ks1g1r2/1ppppsbpp/p4pp2/7P1/P1P1P1P2/1PBPSP2P/2K1G2R1/LNSG3NL b - 31",
+        "l6nl/5+P1gk/2np1S3/p1p4Pp/3P2Sp1/1PPb2P1P/P5GS1/R8/LN4bKL w RGgsn5p 1",
+    };
+    TransTable tt;
+    tt.resize(64);
+    Searcher   searcher(tt);
+    uint64_t   nodes = 0;
+    int64_t    start = nowMs();
+    for (auto s : positions) {
+        std::istringstream is(s);
+        std::string board, side, hands;
+        is >> board >> side >> hands;
+        Game g;
+        g.setSfen(board, side, hands);
+        tt.clear();
+        Limits lim;
+        lim.depth  = depth;
+        lim.softMs = lim.hardMs = INT64_MAX / 2;
+        searchStart = nowMs();
+        auto r = searcher.think(g, lim, false);
+        nodes += r.nodes;
+        std::cout << "bestmove " << usiMove(r.best) << " score " << r.score
+                  << " nodes " << r.nodes << "  (" << s << ")" << std::endl;
+    }
+    int64_t ms = std::max<int64_t>(nowMs() - start, 1);
+    std::cout << "total nodes " << nodes << ", " << ms << " ms, "
+              << nodes * 1000 / static_cast<uint64_t>(ms) << " nps" << std::endl;
+    return EXIT_SUCCESS;
+}
+
+/* ------------------------------------------------------------------------- */
+
+void usage (const char *name)
+{
+    std::cerr
+        << "Usage:\n"
+        << "  " << name << "                          USI engine (for Shogi GUIs)\n"
+        << "  " << name << " play [black|white] [sec] play against the program\n"
+        << "  " << name << " csa <user> <pass> <host> [sec]\n"
+        << "  " << name << "                          play on a CSA server\n"
+        << "  " << name << " selfplay [games] [msec]  the program plays itself\n"
+        << "  " << name << " bench [depth]            search benchmark\n";
+}
+
+}   // namespace
+
+
+
+/**
+ * Main function
+ * @param argc number of command option when invoked.
+ * @param argv strings of comannd options in array.
+ * @return status code reflecting normal end or error end.
+ */
+int main (int argc, char *argv[])
+{
+    // initialize the library and the evaluation
+    Shogi::initialize();
+    Position::setValue  (Evaluation::Value);
+    Position::handsValue(Evaluation::Hands);
+    initEvaluation();
+
+    std::string mode = argc > 1 ? argv[1] : "usi";
+
+    if (mode == "usi") {
+        if (isatty(STDIN_FILENO)) {
+            std::cerr << "USI engine. Type 'usi' to start, or run '"
+                      << argv[0] << " play' to play in this terminal."
+                      << std::endl;
+        }
+        UsiEngine engine;
+        engine.run();
+        return EXIT_SUCCESS;
+    }
+    if (mode == "play") {
+        auto human = Color::Black;
+        if (argc > 2 && std::string(argv[2]) == "white") {
+            human = Color::White;
+        }
+        double sec = argc > 3 ? atof(argv[3]) : 5.0;
+        return playMode(human, static_cast<int64_t>(sec * 1000));
+    }
+    if (mode == "csa" && argc >= 5) {
+        double sec = argc > 5 ? atof(argv[5]) : 10.0;
+        return csaMode(argv[2], argv[3], argv[4],
+                       static_cast<int64_t>(sec * 1000) - 500);
+    }
+    if (mode == "selfplay") {
+        int     games = argc > 2 ? atoi(argv[2]) : 1;
+        int64_t ms    = argc > 3 ? atoll(argv[3]) : 200;
+        return selfPlayMode(games, ms);
+    }
+    if (mode == "bench") {
+        return benchMode(argc > 2 ? atoi(argv[2]) : 7);
+    }
+
+    usage(argv[0]);
+    return EXIT_FAILURE;
 }
